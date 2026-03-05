@@ -11,7 +11,7 @@ export interface User {
 export interface Brand {
   id: number;
   name: string;
-  supplierid: number;
+  supplierId: number;
   active: boolean;
 }
 
@@ -74,8 +74,8 @@ export interface Product {
 
 export interface StockMovement {
   id: number;
-  productid: number;
-  variantid: number;
+  productId: number;
+  variantId: number;
   type: "sale" | "purchase" | "adjustment" | "return";
   quantity: number;
   reference: string;
@@ -106,8 +106,8 @@ export interface Offer {
 
 export interface OrderItem {
   id: number;
-  variantid: number;
-  productid: number;
+  variantId: number;
+  productId: number;
   quantity: number;
   price: number;
   status: "pending" | "completed" | "cancelled";
@@ -116,7 +116,7 @@ export interface OrderItem {
 export interface Order {
   id: number;
   orderNumber: string;
-  customerid: number;
+  customerId: number;
   customerName: string;
   customerEmail: string;
   items: OrderItem[];
@@ -139,7 +139,7 @@ export interface KPI {
 
 export interface ChartData {
   name: string;
-  value: number;
+  value?: number;
   [key: string]: string | number;
 }
 

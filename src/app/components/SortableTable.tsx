@@ -21,7 +21,7 @@ interface SortableTableProps<T> {
   data: T[];
   columns: ColumnDef<T>[];
   onRowClick?: (item: T) => void;
-  getRowKey: (item: T) => string;
+  getRowKey: (item: T) => number;
   emptyMessage?: string;
 }
 

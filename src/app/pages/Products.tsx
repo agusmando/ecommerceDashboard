@@ -2,10 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { DashboardLayout } from "../layouts/DashboardLayout";
 import { Card } from "../components/Card";
-import {
-  SortableTable,
-  ColumnDef,
-} from "../components/SortableTable";
+import { SortableTable, ColumnDef } from "../components/SortableTable";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
@@ -23,14 +20,7 @@ import {
   mockCategories,
   mockTags,
 } from "../data/mockData";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  X,
-  Upload,
-  PackagePlus,
-} from "lucide-react";
+import { Plus, Edit, Trash2, X, Upload, PackagePlus } from "lucide-react";
 import type { Product } from "../types";
 import { toast } from "sonner";
 import BaseService from "../service/baseService";
@@ -57,15 +47,11 @@ const productService = new BaseService<Product>("product");
 export default function Products() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBulkStockModalOpen, setIsBulkStockModalOpen] =
-    useState(false);
+  const [isBulkStockModalOpen, setIsBulkStockModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState<number>(0);
-  const [confirmDelete, setConfirmDelete] = useState<
-    string | null
-  >(null);
-  const [confirmCancelStock, setConfirmCancelStock] =
-    useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [confirmCancelStock, setConfirmCancelStock] = useState(false);
 
   // Filter states
   const [filterCategory, setFilterCategory] = useState("all");
@@ -74,9 +60,7 @@ export default function Products() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Bulk stock state
-  const [stockVariants, setStockVariants] = useState<
-    VariantItem[]
-  >([]);
+  const [stockVariants, setStockVariants] = useState<VariantItem[]>([]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -98,31 +82,26 @@ export default function Products() {
     variantImages: [] as string[],
     variantContentAmount: "",
     variantPackagingOptions: ["", "", ""], // Up to 3 packaging options
-    variantRoundingOption: "none" as
-      | "none"
-      | "tens"
-      | "hundreds",
+    variantRoundingOption: "none" as "none" | "tens" | "hundreds",
     isMix: false,
     mixComponents: [] as {
-      variantId: string;
+      variantId: string | number;
       variantName: string;
       quantity: number;
     }[],
   });
 
-  const [productList, setProductList] = useState<
-    Product[] | []
-  >([]);
+  const [productList, setProductList] = useState<Product[] | []>([]);
 
   const handleCreate = () => {
     setIsEditing(false);
-    setCurrentId(null);
+    setCurrentId(0);
     setFormData({
       name: "",
-      brandId: mockBrands[0]?.id || "",
-      categoryId: mockCategories[0]?.id || "",
+      brandId: mockBrands[0]?.id || 0,
+      categoryId: mockCategories[0]?.id || 0,
       description: "",
-      status: "activo",
+      active: true,
       tags: [],
       unit: "u",
       variantName: "Estándar",
@@ -171,12 +150,7 @@ export default function Products() {
 
   const handleSubmit = () => {
     // Validate
-    if (
-      !formData.name ||
-      !formData.brandId ||
-      !formData.categoryId
-    )
-      return;
+    if (!formData.name || !formData.brandId || !formData.categoryId) return;
 
     // For creation, validate variant
     if (!isEditing) {
@@ -204,16 +178,10 @@ export default function Products() {
     }
 
     const invalidVariants = stockVariants.filter(
-      (v) =>
-        !v.quantity ||
-        !v.price ||
-        v.quantity <= 0 ||
-        v.price <= 0,
+      (v) => !v.quantity || !v.price || v.quantity <= 0 || v.price <= 0,
     );
     if (invalidVariants.length > 0) {
-      toast.error(
-        "Todas las variantes deben tener cantidad y precio válidos",
-      );
+      toast.error("Todas las variantes deben tener cantidad y precio válidos");
       return;
     }
 
@@ -234,33 +202,24 @@ export default function Products() {
   };
 
   // Filter products logic
-  const filteredProducts = productList.filter(
-    (product: Product) => {
-      if (
-        filterCategory !== "all" &&
-        product.Category.name !== filterCategory
-      )
-        return false;
-      if (
-        filterBrand !== "all" &&
-        product.Brand.name !== filterBrand
-      )
-        return false;
-      if (
-        filterStatus !== "all" &&
-        product.active !== filterStatus
-      )
-        return false;
-      if (
-        searchQuery &&
-        !product.name
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase())
-      )
-        return false;
-      return true;
-    },
-  );
+  const filteredProducts = productList.filter((product: Product) => {
+    console.log(filterCategory, product?.Category?.name)
+    if (filterCategory !== "all" && product?.Category && product.Category.name.toLowerCase() !== filterCategory.toLowerCase())
+      return false;
+    if (filterBrand !== "all" && product?.Brand && product.Brand.name.toLowerCase() !== filterBrand.toLowerCase() )
+      return false;
+    if (
+      filterStatus !== "all" &&
+      product.active !== (filterStatus === "activo")
+    )
+      return false;
+    if (
+      searchQuery &&
+      !product.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+      return false;
+    return true;
+  });
 
   const getStatusBadge = (active: boolean) => {
     return active ? (
@@ -271,25 +230,8 @@ export default function Products() {
   };
 
   const getTotalStock = (product: Product) => {
-    return product.variants.reduce(
-      (sum, v) => sum + v.currentStock,
-      0,
-    );
+    return product.variants.reduce((sum, v) => sum + v.currentStock, 0);
   };
-
-  const getBrandName = (brandId: string) => {
-    return (
-      mockBrands.find((b) => b.id === brandId)?.name || "-"
-    );
-  };
-
-  const getCategoryName = (categoryId: string) => {
-    return (
-      mockCategories.find((c) => c.id === categoryId)?.name ||
-      "-"
-    );
-  };
-
   // Define columns for sortable table
   const columns: ColumnDef<Product>[] = [
     {
@@ -301,13 +243,13 @@ export default function Products() {
       key: "Brand",
       label: "Marca",
       sortable: true,
-      render: (product) => product.Brand.name,
+      render: (product) => product?.Brand?.name || "-",
     },
     {
       key: "categoryId",
       label: "Categoría",
       sortable: true,
-      render: (product) => product.Category.name,
+      render: (product) => product?.Category?.name || "-",
     },
     {
       key: "variants",
@@ -324,9 +266,7 @@ export default function Products() {
       render: (product) => {
         const totalStock = getTotalStock(product);
         return (
-          <Badge
-            variant={totalStock < 50 ? "warning" : "success"}
-          >
+          <Badge variant={totalStock < 50 ? "warning" : "success"}>
             {totalStock}
           </Badge>
         );
@@ -426,12 +366,10 @@ export default function Products() {
               />
               <Select
                 value={filterCategory}
-                onChange={(e) =>
-                  setFilterCategory(e.target.value)
-                }
+                onChange={(e) => setFilterCategory(e.target.value)}
                 options={[
                   {
-                    value: "all",
+                    value: -1,
                     label: "Todas las Categorías",
                   },
                   ...mockCategories.map((c) => ({
@@ -444,7 +382,7 @@ export default function Products() {
                 value={filterBrand}
                 onChange={(e) => setFilterBrand(e.target.value)}
                 options={[
-                  { value: "all", label: "Todas las Marcas" },
+                  { value: -1, label: "Todas las Marcas" },
                   ...mockBrands.map((b) => ({
                     value: b.id,
                     label: b.name,
@@ -453,13 +391,11 @@ export default function Products() {
               />
               <Select
                 value={filterStatus}
-                onChange={(e) =>
-                  setFilterStatus(e.target.value)
-                }
+                onChange={(e) => setFilterStatus(e.target.value)}
                 options={[
-                  { value: "all", label: "Todos" },
-                  { value: "activo", label: "Activo" },
-                  { value: "inactivo", label: "Inactivo" },
+                  { value: -1, label: "Todos" },
+                  { value: 1, label: "Activo" },
+                  { value: 0, label: "Inactivo" },
                 ]}
               />
             </div>
@@ -485,22 +421,17 @@ export default function Products() {
           size="lg"
           footer={
             <>
-              <Button
-                variant="ghost"
-                onClick={handleCancelBulkStock}
-              >
+              <Button variant="ghost" onClick={handleCancelBulkStock}>
                 Cancelar
               </Button>
-              <Button onClick={handleBulkStockSubmit}>
-                Agregar Stock
-              </Button>
+              <Button onClick={handleBulkStockSubmit}>Agregar Stock</Button>
             </>
           }
         >
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Seleccione las variantes y defina la cantidad y
-              precio de compra para cada una.
+              Seleccione las variantes y defina la cantidad y precio de compra
+              para cada una.
             </p>
             <VariantSelector
               selectedVariants={stockVariants}
@@ -534,18 +465,11 @@ export default function Products() {
         <Modal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          title={
-            isEditing
-              ? "Editar Producto"
-              : "Crear Nuevo Producto"
-          }
+          title={isEditing ? "Editar Producto" : "Crear Nuevo Producto"}
           size="lg"
           footer={
             <>
-              <Button
-                variant="ghost"
-                onClick={() => setIsModalOpen(false)}
-              >
+              <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
                 Cancelar
               </Button>
               <Button onClick={handleSubmit}>
@@ -556,9 +480,7 @@ export default function Products() {
         >
           {isEditing ? (
             <ProductEditForm
-              product={
-                mockProducts.find((p) => p.id === currentId)!
-              }
+              product={mockProducts.find((p) => p.id === currentId)!}
             />
           ) : (
             <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
@@ -583,9 +505,7 @@ export default function Products() {
                     label="Marca"
                     options={mockBrands
                       .filter(
-                        (b) =>
-                          b.status === "activo" ||
-                          b.status === "active",
+                        (b) => b.active,
                       )
                       .map((b) => ({
                         value: b.id,
@@ -630,12 +550,9 @@ export default function Products() {
                 </div>
 
                 <div>
-                  <Label className="mb-2 block">
-                    Etiquetas
-                  </Label>
+                  <Label className="mb-2 block">Etiquetas</Label>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Busque y seleccione las etiquetas que desee
-                    aplicar
+                    Busque y seleccione las etiquetas que desee aplicar
                   </p>
                   <Autocomplete
                     items={mockTags.map((tag) => ({
@@ -671,25 +588,19 @@ export default function Products() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <Label className="text-foreground">
-                    Estado
-                  </Label>
+                  <Label className="text-foreground">Estado</Label>
                   <div className="flex items-center gap-2">
                     <Switch
                       checked={formData.status === "activo"}
                       onCheckedChange={(checked) =>
                         setFormData({
                           ...formData,
-                          status: checked
-                            ? "activo"
-                            : "inactivo",
+                          status: checked ? "activo" : "inactivo",
                         })
                       }
                     />
                     <span className="text-sm text-muted-foreground">
-                      {formData.status === "activo"
-                        ? "Activo"
-                        : "Inactivo"}
+                      {formData.status === "activo" ? "Activo" : "Inactivo"}
                     </span>
                   </div>
                 </div>
@@ -800,16 +711,14 @@ export default function Products() {
                       Opciones de Empaque (Producto a granel)
                     </Label>
                     <p className="text-xs text-muted-foreground mb-3">
-                      Ingrese hasta 3 opciones de empaque para
-                      este producto a granel
+                      Ingrese hasta 3 opciones de empaque para este producto a
+                      granel
                     </p>
                     <div className="grid grid-cols-3 gap-3">
                       <Input
                         placeholder="ej: 100"
                         type="number"
-                        value={
-                          formData.variantPackagingOptions[0]
-                        }
+                        value={formData.variantPackagingOptions[0]}
                         onChange={(e) => {
                           const newOptions = [
                             ...formData.variantPackagingOptions,
@@ -824,9 +733,7 @@ export default function Products() {
                       <Input
                         placeholder="ej: 250"
                         type="number"
-                        value={
-                          formData.variantPackagingOptions[1]
-                        }
+                        value={formData.variantPackagingOptions[1]}
                         onChange={(e) => {
                           const newOptions = [
                             ...formData.variantPackagingOptions,
@@ -841,9 +748,7 @@ export default function Products() {
                       <Input
                         placeholder="ej: 500"
                         type="number"
-                        value={
-                          formData.variantPackagingOptions[2]
-                        }
+                        value={formData.variantPackagingOptions[2]}
                         onChange={(e) => {
                           const newOptions = [
                             ...formData.variantPackagingOptions,
@@ -861,18 +766,16 @@ export default function Products() {
 
                 {/* Rounding Option */}
                 <div className="mb-4">
-                  <Label className="mb-2 block">
-                    Redondeo de Precios
-                  </Label>
+                  <Label className="mb-2 block">Redondeo de Precios</Label>
                   <Select
                     options={[
-                      { value: "none", label: "Sin redondeo" },
+                      { value: 0, label: "Sin redondeo" },
                       {
-                        value: "tens",
+                        value: 10,
                         label: "Redondear a la decena",
                       },
                       {
-                        value: "hundreds",
+                        value: 100,
                         label: "Redondear a la centena",
                       },
                     ]}
@@ -880,8 +783,7 @@ export default function Products() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        variantRoundingOption: e.target
-                          .value as
+                        variantRoundingOption: e.target.value as
                           | "none"
                           | "tens"
                           | "hundreds",
@@ -891,9 +793,7 @@ export default function Products() {
                 </div>
 
                 <div className="mb-4">
-                  <Label className="mb-2 block">
-                    Imágenes de variante
-                  </Label>
+                  <Label className="mb-2 block">Imágenes de variante</Label>
                   <input
                     type="file"
                     multiple
@@ -904,15 +804,12 @@ export default function Products() {
                       const files = e.target.files;
                       if (files) {
                         // In a real app, you would upload these files and get URLs
-                        const newImages = Array.from(files).map(
-                          (f) => URL.createObjectURL(f),
+                        const newImages = Array.from(files).map((f) =>
+                          URL.createObjectURL(f),
                         );
                         setFormData((prev) => ({
                           ...prev,
-                          variantImages: [
-                            ...prev.variantImages,
-                            ...newImages,
-                          ],
+                          variantImages: [...prev.variantImages, ...newImages],
                         }));
                       }
                     }}
@@ -921,42 +818,38 @@ export default function Products() {
                     <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
                       <Upload className="w-8 h-8 mb-2" />
                       <span className="text-xs">
-                        Haga clic para subir imágenes
-                        (múltiples)
+                        Haga clic para subir imágenes (múltiples)
                       </span>
                     </div>
                   </label>
                   {formData.variantImages.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {formData.variantImages.map(
-                        (img, idx) => (
-                          <div
-                            key={idx}
-                            className="relative w-20 h-20 rounded-lg overflow-hidden border border-border"
+                      {formData.variantImages.map((img, idx) => (
+                        <div
+                          key={idx}
+                          className="relative w-20 h-20 rounded-lg overflow-hidden border border-border"
+                        >
+                          <img
+                            src={img}
+                            alt={`Imagen ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                variantImages: prev.variantImages.filter(
+                                  (_, i) => i !== idx,
+                                ),
+                              }));
+                            }}
+                            className="absolute top-0 right-0 bg-destructive text-destructive-foreground p-1 rounded-bl-lg"
                           >
-                            <img
-                              src={img}
-                              alt={`Imagen ${idx + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  variantImages:
-                                    prev.variantImages.filter(
-                                      (_, i) => i !== idx,
-                                    ),
-                                }));
-                              }}
-                              className="absolute top-0 right-0 bg-destructive text-destructive-foreground p-1 rounded-bl-lg"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ),
-                      )}
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -965,12 +858,10 @@ export default function Products() {
                 <div className="bg-muted/30 p-4 rounded-lg border border-border">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <Label className="text-foreground">
-                        ¿Es un Mix?
-                      </Label>
+                      <Label className="text-foreground">¿Es un Mix?</Label>
                       <p className="text-xs text-muted-foreground">
-                        Permite componer este producto de otros
-                        productos existentes
+                        Permite componer este producto de otros productos
+                        existentes
                       </p>
                     </div>
                     <Switch
@@ -1008,25 +899,23 @@ export default function Products() {
                           selectedIds={[]}
                           onSelectionChange={(ids) => {
                             if (ids.length > 0) {
-                              const selectedVariant =
-                                mockProducts
-                                  .flatMap((p) =>
-                                    p.variants.map((v) => ({
-                                      id: v.id,
-                                      label: v.name,
-                                      subtitle: p.name,
-                                      unit: v.unit || "u",
-                                    })),
-                                  )
-                                  .find((v) => v.id === ids[0]);
+                              const selectedVariant = mockProducts
+                                .flatMap((p) =>
+                                  p.variants.map((v) => ({
+                                    id: v.id,
+                                    label: v.name,
+                                    subtitle: p.name,
+                                    unit: v.unit || "u",
+                                  })),
+                                )
+                                .find((v) => v.id === ids[0]);
                               if (selectedVariant) {
                                 setFormData((prev) => ({
                                   ...prev,
                                   mixComponents: [
                                     ...prev.mixComponents,
                                     {
-                                      variantId:
-                                        selectedVariant.id,
+                                      variantId: selectedVariant.id,
                                       variantName: `${selectedVariant.label} (${selectedVariant.unit})`,
                                       quantity: 0,
                                     },
@@ -1046,57 +935,47 @@ export default function Products() {
                           <Label className="block">
                             Variantes seleccionadas
                           </Label>
-                          {formData.mixComponents.map(
-                            (component, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-2 bg-card p-2 rounded-lg border border-border"
+                          {formData.mixComponents.map((component, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-2 bg-card p-2 rounded-lg border border-border"
+                            >
+                              <span className="text-sm flex-1">
+                                {component.variantName}
+                              </span>
+                              <Input
+                                type="number"
+                                placeholder="Cant."
+                                value={component.quantity || ""}
+                                onChange={(e) => {
+                                  const newComponents = [
+                                    ...formData.mixComponents,
+                                  ];
+                                  newComponents[idx].quantity =
+                                    parseFloat(e.target.value) || 0;
+                                  setFormData({
+                                    ...formData,
+                                    mixComponents: newComponents,
+                                  });
+                                }}
+                                className="w-24"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    mixComponents: prev.mixComponents.filter(
+                                      (_, i) => i !== idx,
+                                    ),
+                                  }));
+                                }}
+                                className="text-destructive hover:bg-destructive/10 p-1 rounded"
                               >
-                                <span className="text-sm flex-1">
-                                  {component.variantName}
-                                </span>
-                                <Input
-                                  type="number"
-                                  placeholder="Cant."
-                                  value={
-                                    component.quantity || ""
-                                  }
-                                  onChange={(e) => {
-                                    const newComponents = [
-                                      ...formData.mixComponents,
-                                    ];
-                                    newComponents[
-                                      idx
-                                    ].quantity =
-                                      parseFloat(
-                                        e.target.value,
-                                      ) || 0;
-                                    setFormData({
-                                      ...formData,
-                                      mixComponents:
-                                        newComponents,
-                                    });
-                                  }}
-                                  className="w-24"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      mixComponents:
-                                        prev.mixComponents.filter(
-                                          (_, i) => i !== idx,
-                                        ),
-                                    }));
-                                  }}
-                                  className="text-destructive hover:bg-destructive/10 p-1 rounded"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ),
-                          )}
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1112,10 +991,7 @@ export default function Products() {
           isOpen={confirmDelete !== null}
           onClose={() => setConfirmDelete(null)}
           onConfirm={() => {
-            console.log(
-              "Deleting product with ID:",
-              confirmDelete,
-            );
+            console.log("Deleting product with ID:", confirmDelete);
             toast.success("Producto eliminado correctamente");
             setConfirmDelete(null);
           }}
