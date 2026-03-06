@@ -56,7 +56,7 @@ export default function Products() {
   // Filter states
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterBrand, setFilterBrand] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Bulk stock state
@@ -210,7 +210,7 @@ export default function Products() {
       return false;
     if (
       filterStatus !== "all" &&
-      product.active !== (filterStatus === "activo")
+      product.active !== (filterStatus === "true")
     )
       return false;
     if (
@@ -230,7 +230,11 @@ export default function Products() {
   };
 
   const getTotalStock = (product: Product) => {
-    return product.variants.reduce((sum, v) => sum + v.currentStock, 0);
+    const totalStock = product.variants.reduce((sum, v) => sum + v.currentStock, 0);
+    const hasLowStock = product.variants.some(v => v.currentStock < v.stockThreshold);
+    const isOutOfStock = product.variants.some(v => v.currentStock === 0);
+    console.log(totalStock, hasLowStock, isOutOfStock)
+    return { totalStock, hasLowStock, isOutOfStock };
   };
   // Define columns for sortable table
   const columns: ColumnDef<Product>[] = [
@@ -264,9 +268,9 @@ export default function Products() {
       align: "center",
       sortable: true,
       render: (product) => {
-        const totalStock = getTotalStock(product);
+        const { totalStock, hasLowStock, isOutOfStock }= getTotalStock(product);
         return (
-          <Badge variant={totalStock < 50 ? "warning" : "success"}>
+          <Badge variant={ isOutOfStock ? "danger" : hasLowStock ? "warning" : "success"}>
             {totalStock}
           </Badge>
         );
@@ -369,11 +373,11 @@ export default function Products() {
                 onChange={(e) => setFilterCategory(e.target.value)}
                 options={[
                   {
-                    value: -1,
+                    value: "all",
                     label: "Todas las Categorías",
                   },
                   ...mockCategories.map((c) => ({
-                    value: c.id,
+                    value: c.name,
                     label: c.name,
                   })),
                 ]}
@@ -393,9 +397,9 @@ export default function Products() {
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 options={[
-                  { value: -1, label: "Todos" },
-                  { value: 1, label: "Activo" },
-                  { value: 0, label: "Inactivo" },
+                  { value: "all", label: "Todos" },
+                  { value: "true", label: "Activo" },
+                  { value: "false", label: "Inactivo" },
                 ]}
               />
             </div>
@@ -515,7 +519,7 @@ export default function Products() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        brandId: e.target.value,
+                        brandId: Number(e.target.value),
                       })
                     }
                   />
@@ -529,7 +533,7 @@ export default function Products() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        categoryId: e.target.value,
+                        categoryId: Number(e.target.value),
                       })
                     }
                   />
@@ -558,7 +562,7 @@ export default function Products() {
                     items={mockTags.map((tag) => ({
                       id: tag.id,
                       label: tag.name,
-                    }))}
+                    })) as any} 
                     selectedIds={formData.tags}
                     onSelectionChange={(ids) =>
                       setFormData({ ...formData, tags: ids })
@@ -591,16 +595,16 @@ export default function Products() {
                   <Label className="text-foreground">Estado</Label>
                   <div className="flex items-center gap-2">
                     <Switch
-                      checked={formData.status === "activo"}
+                      checked={formData.active }
                       onCheckedChange={(checked) =>
                         setFormData({
                           ...formData,
-                          status: checked ? "activo" : "inactivo",
+                          active: checked,
                         })
                       }
                     />
                     <span className="text-sm text-muted-foreground">
-                      {formData.status === "activo" ? "Activo" : "Inactivo"}
+                      {formData.active  ? "Activo" : "Inactivo"}
                     </span>
                   </div>
                 </div>
@@ -888,7 +892,7 @@ export default function Products() {
                                 id: v.id,
                                 label: v.name,
                                 subtitle: p.name,
-                              })),
+                              })) as any,
                             )
                             .filter(
                               (v) =>
@@ -908,7 +912,7 @@ export default function Products() {
                                     unit: v.unit || "u",
                                   })),
                                 )
-                                .find((v) => v.id === ids[0]);
+                                .find((v) => v.id === Number(ids[0]));
                               if (selectedVariant) {
                                 setFormData((prev) => ({
                                   ...prev,

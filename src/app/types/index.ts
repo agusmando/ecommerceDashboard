@@ -38,6 +38,7 @@ export interface ProductVariant {
   name: string;
   price: number;
   currentStock: number;
+  stockThreshold: number;
   type: "normal" | "mix";
   active: boolean;
   profitMargin?: number;
