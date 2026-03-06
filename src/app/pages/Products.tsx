@@ -70,7 +70,7 @@ export default function Products() {
     description: "",
     active: false,
     tags: [] as string[],
-    unit: "u",
+    measure: "u",
 
     // Initial variant data for creation
     variantName: "Estándar",
@@ -103,7 +103,7 @@ export default function Products() {
       description: "",
       active: true,
       tags: [],
-      unit: "u",
+      measure: "u",
       variantName: "Estándar",
       variantPrice: "",
       variantStock: "",
@@ -129,8 +129,8 @@ export default function Products() {
       categoryId: product.categoryId,
       description: product.description,
       active: product.active,
-      tags: product.tags || [],
-      unit: product.unit || "u",
+      tags: product.Tags ? product.Tags.map(t => t.name) : [],
+      measure: product.measure || "u",
       // We don't populate variant fields for edit main product modal
       variantName: "",
       variantPrice: "",
@@ -230,9 +230,10 @@ export default function Products() {
   };
 
   const getTotalStock = (product: Product) => {
-    const totalStock = product.variants.reduce((sum, v) => sum + v.currentStock, 0);
+    let totalStock = product.variants.reduce((sum, v) => sum + v.currentStock, 0);
     const hasLowStock = product.variants.some(v => v.currentStock < v.stockThreshold);
     const isOutOfStock = product.variants.some(v => v.currentStock === 0);
+    if (product.measure == "KG") totalStock = totalStock / 1000 
     console.log(totalStock, hasLowStock, isOutOfStock)
     return { totalStock, hasLowStock, isOutOfStock };
   };
@@ -271,7 +272,7 @@ export default function Products() {
         const { totalStock, hasLowStock, isOutOfStock }= getTotalStock(product);
         return (
           <Badge variant={ isOutOfStock ? "danger" : hasLowStock ? "warning" : "success"}>
-            {totalStock}
+            {totalStock} { product.measure}
           </Badge>
         );
       },
@@ -484,7 +485,7 @@ export default function Products() {
         >
           {isEditing ? (
             <ProductEditForm
-              product={mockProducts.find((p) => p.id === currentId)!}
+              product={productList.find((p) => p.id === currentId)!}
             />
           ) : (
             <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
@@ -543,11 +544,11 @@ export default function Products() {
                   <Select
                     label="Unidad de Medida (Base)"
                     options={UNITS}
-                    value={formData.unit}
+                    value={formData.measure}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        unit: e.target.value,
+                        measure: e.target.value,
                       })
                     }
                   />

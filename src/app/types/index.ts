@@ -46,13 +46,22 @@ export interface ProductVariant {
   requestTime?: number; // Days or hours? Assuming days/hours as number
   images?: string[]; // Changed from image to images array
   packagingOptions?: number[]; // For bulk products (up to 3 values) - only for KG/G units
-  contentAmount?: number; // e.g., 90ml in a jar
-  roundingOption?: "none" | "tens" | "hundreds"; // Rounding to tens or hundreds
-  mixComponents?: {
-    variantid: number;
-    variantName?: string; // For display purposes
+  contentAmount: number; // e.g., 90ml in a jar
+  contentMeasure: string;
+  roundingOption: 10 | 100; // Rounding to tens or hundreds
+  hasComponents: {
+    mixVariantId: number;
+    productVariantId: number;
+    name?: string; // For display purposes
     quantity: number;
   }[];
+  isComponentOf: {
+    mixVariantId: number;
+    productVariantId: number;
+    name?: string; // For display purposes
+    quantity: number;
+  }[];
+  finalPrice?: number
 }
 
 export interface Product {
@@ -63,14 +72,11 @@ export interface Product {
   Brand?: Brand;
   categoryId: number;
   Category?: Category;
-  tags: string[];
   Tags?: Tag[];
-  unit?: string; // Base unit for the product
+  measure?: string; // Base unit for the product
   active: boolean;
   variants: ProductVariant[];
   images?: string[];
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface StockMovement {
@@ -94,8 +100,8 @@ export interface Offer {
     | "BUY_MORE_GET_DISCOUNT"
     | "BUY_MORE_GET_FIXED_DISCOUNT";
   value: number;
-  variantIds?: string[];
-  productIds?: string[];
+  variantId?: number[];
+  productId?: number[];
   discountQuantity?: number;
   discountValue?: number;
   quantityToGet?: number;

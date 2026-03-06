@@ -17,9 +17,9 @@ export default class BaseService<T> {
       detalle?: boolean;
       searchParams?: { key: string; value: any }[];
     } = {
-      paginate: null,
-      currentPage: null,
-      amountPerPage: null,
+      paginate: false,
+      currentPage: 1,
+      amountPerPage: 10,
       detalle: false,
       searchParams: [],
     },
@@ -39,7 +39,7 @@ export default class BaseService<T> {
     if (params.detalle) {
       paramBuilder += "detalle=" + params.detalle + "&";
     }
-    if (params.searchParams?.length > 0) {
+    if (params.searchParams && params.searchParams?.length > 0) {
       paramBuilder += params.searchParams.map((param) => {
         return param.key + "=" + param.value + "&";
       });
@@ -47,6 +47,12 @@ export default class BaseService<T> {
     const response = await axios.get(
       this.baseUrl + this.route + paramBuilder,
     );
+    return response.data;
+  }
+
+  async getOne(id: number): Promise<BaseResponse<T>> {
+    console.log(id)
+    const response = await axios.get(this.baseUrl + this.route + "/" + id);
     return response.data;
   }
 }

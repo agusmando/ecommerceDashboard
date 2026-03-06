@@ -20,14 +20,16 @@ interface ProductEditFormProps {
 }
 
 export function ProductEditForm({ product }: ProductEditFormProps) {
+  console.log(product)
+
   const [formData, setFormData] = useState({
     name: product.name,
     brandId: product.brandId,
     categoryId: product.categoryId,
     description: product.description,
-    status: product.status,
-    tags: product.tags || [],
-    unit: product.unit || "u",
+    active: product.active,
+    tags: product.Tags || [],
+    measure: product.measure || "u",
   });
 
   const handleChange = (field: string, value: any) => {
@@ -46,7 +48,7 @@ export function ProductEditForm({ product }: ProductEditFormProps) {
         <Select
           label="Marca"
           options={mockBrands
-            .filter((b) => b.status === "activo" || b.status === "active")
+            .filter((b) => b.active)
             .map((b) => ({ value: b.id, label: b.name }))}
           value={formData.brandId}
           onChange={(e) => handleChange("brandId", e.target.value)}
@@ -66,8 +68,8 @@ export function ProductEditForm({ product }: ProductEditFormProps) {
         <Select
           label="Unidad de Medida (Base)"
           options={UNITS}
-          value={formData.unit}
-          onChange={(e) => handleChange("unit", e.target.value)}
+          value={formData.measure}
+          onChange={(e) => handleChange("measure", e.target.value)}
         />
       </div>
 
@@ -77,8 +79,8 @@ export function ProductEditForm({ product }: ProductEditFormProps) {
           Busque y seleccione las etiquetas que desee aplicar
         </p>
         <Autocomplete
-          items={mockTags.map((tag) => ({ id: tag.id, label: tag.name }))}
-          selectedIds={formData.tags}
+          items={mockTags.map((tag) => ({ id: tag.id, label: tag.name }) as any)}
+          selectedIds={formData.tags.map((tag) => tag.name)}
           onSelectionChange={(ids) => handleChange("tags", ids)}
           placeholder="Buscar etiquetas..."
           showBadges={true}
@@ -101,13 +103,13 @@ export function ProductEditForm({ product }: ProductEditFormProps) {
         <Label className="text-foreground">Estado</Label>
         <div className="flex items-center gap-2">
           <Switch
-            checked={formData.status === "activo" || formData.status === "active"}
+            checked={formData.active}
             onCheckedChange={(checked) =>
-              handleChange("status", checked ? "activo" : "inactivo")
+              handleChange("active", checked ? "activo" : "inactivo")
             }
           />
           <span className="text-sm text-muted-foreground">
-            {formData.status === "activo" || formData.status === "active"
+            {formData.active
               ? "Activo"
               : "Inactivo"}
           </span>
