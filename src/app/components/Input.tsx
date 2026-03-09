@@ -1,9 +1,10 @@
-import { InputHTMLAttributes, forwardRef } from 'react';
-import { cn } from '../lib/utils';
+import { InputHTMLAttributes, forwardRef } from "react";
+import { cn } from "../lib/utils";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  required?: boolean;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -11,29 +12,26 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block mb-1.5 text-foreground">
-            {label}
-          </label>
+          <label className="block mb-1.5 text-foreground">{label}</label>
         )}
         <input
+          required={props.required}
           ref={ref}
           className={cn(
-            'w-full h-10 px-3 rounded-lg border border-border bg-input-background text-foreground',
-            'focus:outline-none focus:ring-2 focus:ring-ring',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            'placeholder:text-muted-foreground',
-            '[color-scheme:light] dark:[color-scheme:dark]', // Arregla el color del calendario en modos claro/oscuro
-            error && 'border-destructive',
-            className
+            "w-full h-10 px-3 rounded-lg border border-border bg-input-background text-foreground",
+            "focus:outline-none focus:ring-2 focus:ring-ring",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+            "placeholder:text-muted-foreground",
+            "[color-scheme:light] dark:[color-scheme:dark]", // Arregla el color del calendario en modos claro/oscuro
+            error && "border-destructive",
+            className,
           )}
           {...props}
         />
-        {error && (
-          <p className="mt-1 text-sm text-destructive">{error}</p>
-        )}
+        {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
       </div>
     );
-  }
+  },
 );
 
-Input.displayName = 'Input';
+Input.displayName = "Input";

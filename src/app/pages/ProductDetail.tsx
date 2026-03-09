@@ -27,46 +27,24 @@ import {
 } from "../data/mockData";
 import { ArrowLeft, Edit, Trash2, Plus, Upload, X, Eye } from "lucide-react";
 import { formatCurrency, formatDateTime } from "../lib/utils";
-import { Switch } from "../components/ui/switch";
-import { Label } from "../components/ui/label";
-import { Autocomplete } from "../components/Autocomplete";
-import { toast } from "sonner";
 import BaseService from "../service/baseService";
 import { Product, ProductVariant } from "../types";
-
-const UNITS = [
-  { value: "u", label: "Unidad (u)" },
-  { value: "kg", label: "Kilogramo (kg)" },
-  { value: "g", label: "Gramo (g)" },
-  { value: "l", label: "Litro (l)" },
-  { value: "ml", label: "Mililitro (ml)" },
-];
+import VariantForm from "../components/VariantForm";
 
 const productService = new BaseService<Product>("product");
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<
-    "info" | "variants" | "currentStock" | "offers"
-  >("info");
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showVariantModal, setShowVariantModal] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [product, setProduct] = useState<Product>();
-  const [showMixDependencies, setShowMixDependencies] = useState<
-    string | null
-  >();
-
-  // Variant form state
-  const [variantFormData, setVariantFormData] = useState({
+  const initialVariantFormState = {
     name: "",
-    finalPrice: "",
+    price: 0,
     currentStock: "",
     profitMargin: "",
     contentMeasure: "U",
     requestTime: "",
     images: [] as string[],
     contentAmount: "",
+    stockThreshold: 0,
     packagingOptions: ["", "", ""],
     roundingOption: 10,
     isComponentOf: [] as {
@@ -82,7 +60,52 @@ export default function ProductDetail() {
       quantity: number;
     }[],
     isMix: false,
-  });
+  };
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Variant form state
+
+  const [activeTab, setActiveTab] = useState<
+    "variants" | "info" | "currentStock" | "offers"
+  >("variants");
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [product, setProduct] = useState<Product>();
+  type variantFormData = {
+    id?: number
+    name: string;
+    contentMeasure: string;
+    currentStock: string;
+    contentAmount?: string;
+    requestTime?: string;
+    stockThreshold: number;
+    roundingOption: number;
+    profitMargin?: string;
+    price: number;
+    images: string[];
+    packagingOptions: string[];
+    isComponentOf: {
+      active: boolean;
+      mixVariantId: number;
+      productVariantId: number;
+      quantity: number;
+    }[];
+    hasComponents: {
+      active: boolean;
+      mixVariantId: number;
+      productVariantId: number;
+      quantity: number;
+    }[];
+    isMix: boolean;
+  };
+
+  const [showMixDependencies, setShowMixDependencies] = useState<
+    string | null
+  >();
+  const [datosAEditar, setDatosAEditar] = useState<variantFormData | null>(
+    null,
+  );
 
   const brand = mockBrands.find((b) => b.id === product?.brandId);
   const category = mockCategories.find((c) => c.id === product?.categoryId);
@@ -95,8 +118,8 @@ export default function ProductDetail() {
   );
 
   const tabs = [
-    { id: "info", label: "Información" },
     { id: "variants", label: "Variantes" },
+    { id: "info", label: "Información" },
     { id: "currentStock", label: "Movimientos de stock" },
     { id: "offers", label: "Ofertas" },
   ] as const;
@@ -175,13 +198,61 @@ export default function ProductDetail() {
     }
   };
 
+  const handleEditVariant = (productVariant: ProductVariant) => {
+    setIsEditing(true);
+    // setCurrentId(productVariant.id);
+    setDatosAEditar({
+      name: productVariant.name,
+      contentMeasure: productVariant.contentMeasure,
+      currentStock: productVariant.currentStock.toString(),
+      contentAmount: productVariant.contentAmount
+        ? productVariant.contentAmount.toString()
+        : "",
+      requestTime: productVariant.requestTime
+        ? productVariant.requestTime.toString()
+        : "",
+      stockThreshold: productVariant.stockThreshold || 0,
+      roundingOption: productVariant.roundingOption || 10,
+      profitMargin: productVariant.profitMargin
+        ? productVariant.profitMargin.toString()
+        : "",
+      price: productVariant.finalPrice || 0,
+      images: productVariant.images || [],
+      packagingOptions: productVariant.packagingOptions
+        ? productVariant.packagingOptions.map((p) => p.toString())
+        : ["", "", ""],
+      isComponentOf: productVariant.isComponentOf
+        ? productVariant.isComponentOf.map((c) => ({
+            ...c,
+            active: (c as any).active ?? true,
+          }))
+        : [],
+      hasComponents: productVariant.hasComponents
+        ? productVariant.hasComponents.map((c) => ({
+            ...c,
+            active: (c as any).active ?? true,
+          }))
+        : [],
+      isMix: productVariant.hasComponents?.length > 0,
+    });
+    setShowVariantModal(true);
+  };
+
+  const handleCloseVariant = () => {
+    setShowVariantModal(false);
+    // setVariantFormData(initialVariantFormState);
+  };
+
+  const handleCreateVariant = () => {
+    console.log("Creating variant:", { ...datosAEditar })
+    setIsEditing(false);
+  };
+
   useEffect(() => {
-    console.log("is this even on?");
     const fetchData = async () => {
       try {
         if (id === undefined || id === null) return;
         const response = await productService.getOne(Number(id));
-        console.log(response);
         if (response) setProduct(response.response);
       } catch (err) {}
     };
@@ -444,7 +515,11 @@ export default function ProductDetail() {
                                   <Eye className="w-4 h-4" />
                                 </Button>
                               )}
-                              <Button variant="ghost" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditVariant(variant)}
+                              >
                                 <Edit className="w-4 h-4" />
                               </Button>
                             </div>
@@ -589,21 +664,7 @@ export default function ProductDetail() {
               isOpen={showVariantModal}
               onClose={() => {
                 setShowVariantModal(false);
-                setVariantFormData({
-                  name: "",
-                  finalPrice: "",
-                  currentStock: "",
-                  profitMargin: "",
-                  contentMeasure: "U",
-                  requestTime: "",
-                  images: [],
-                  contentAmount: "",
-                  packagingOptions: ["", "", ""],
-                  roundingOption: 10,
-                  isComponentOf: [],
-                  hasComponents: [],
-                  isMix: false,
-                });
+                setDatosAEditar(initialVariantFormState);
               }}
               title="Agregar Variante"
               size="lg"
@@ -611,13 +672,16 @@ export default function ProductDetail() {
                 <>
                   <Button
                     variant="ghost"
-                    onClick={() => setShowVariantModal(false)}
+                    onClick={() => {
+                      setShowVariantModal(false);
+                      setDatosAEditar(initialVariantFormState);
+                    }}
                   >
                     Cancelar
                   </Button>
                   <Button
                     onClick={() => {
-                      console.log("Creating variant:", variantFormData);
+                      handleCreateVariant();
                       setShowVariantModal(false);
                     }}
                   >
@@ -626,360 +690,10 @@ export default function ProductDetail() {
                 </>
               }
             >
-              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Nombre Variante"
-                    placeholder="ej: Estándar, 500g, Pack x3"
-                    value={variantFormData.name}
-                    onChange={(e) =>
-                      setVariantFormData({
-                        ...variantFormData,
-                        name: e.target.value,
-                      })
-                    }
-                  />
-                  <Select
-                    label="Unidad (Variante)"
-                    options={UNITS}
-                    value={variantFormData.contentMeasure}
-                    onChange={(e) =>
-                      setVariantFormData({
-                        ...variantFormData,
-                        contentMeasure: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <Input
-                    label="Stock Inicial"
-                    type="number"
-                    placeholder="0"
-                    value={variantFormData.currentStock}
-                    onChange={(e) =>
-                      setVariantFormData({
-                        ...variantFormData,
-                        currentStock: e.target.value,
-                      })
-                    }
-                  />
-                  <Input
-                    label="Contenido (ej: 90ml)"
-                    type="number"
-                    placeholder="Opcional"
-                    value={variantFormData.contentAmount}
-                    onChange={(e) =>
-                      setVariantFormData({
-                        ...variantFormData,
-                        contentAmount: e.target.value,
-                      })
-                    }
-                  />
-                  <Input
-                    label="Tiempo Pedido (días)"
-                    type="number"
-                    placeholder="Opcional"
-                    value={variantFormData.requestTime}
-                    onChange={(e) =>
-                      setVariantFormData({
-                        ...variantFormData,
-                        requestTime: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Precio Compra ($)"
-                    type="number"
-                    placeholder="0.00"
-                    value={variantFormData.finalPrice}
-                    onChange={(e) =>
-                      setVariantFormData({
-                        ...variantFormData,
-                        finalPrice: e.target.value,
-                      })
-                    }
-                  />
-                  <Input
-                    label="Margen de Ganancia (%)"
-                    type="number"
-                    placeholder="Ej: 30"
-                    value={variantFormData.profitMargin}
-                    onChange={(e) =>
-                      setVariantFormData({
-                        ...variantFormData,
-                        profitMargin: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                {/* Packaging Options for bulk products */}
-                {(variantFormData.contentMeasure === "kg" ||
-                  variantFormData.contentMeasure === "g") && (
-                  <div className="bg-muted/30 p-4 rounded-lg border border-border">
-                    <Label className="mb-2 block">
-                      Opciones de Empaque (Producto a granel)
-                    </Label>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Ingrese hasta 3 opciones de empaque para este producto a
-                      granel
-                    </p>
-                    <div className="grid grid-cols-3 gap-3">
-                      <Input
-                        placeholder="ej: 100"
-                        type="number"
-                        value={variantFormData.packagingOptions[0]}
-                        onChange={(e) => {
-                          const newOptions = [
-                            ...variantFormData.packagingOptions,
-                          ];
-                          newOptions[0] = e.target.value;
-                          setVariantFormData({
-                            ...variantFormData,
-                            packagingOptions: newOptions,
-                          });
-                        }}
-                      />
-                      <Input
-                        placeholder="ej: 250"
-                        type="number"
-                        value={variantFormData.packagingOptions[1]}
-                        onChange={(e) => {
-                          const newOptions = [
-                            ...variantFormData.packagingOptions,
-                          ];
-                          newOptions[1] = e.target.value;
-                          setVariantFormData({
-                            ...variantFormData,
-                            packagingOptions: newOptions,
-                          });
-                        }}
-                      />
-                      <Input
-                        placeholder="ej: 500"
-                        type="number"
-                        value={variantFormData.packagingOptions[2]}
-                        onChange={(e) => {
-                          const newOptions = [
-                            ...variantFormData.packagingOptions,
-                          ];
-                          newOptions[2] = e.target.value;
-                          setVariantFormData({
-                            ...variantFormData,
-                            packagingOptions: newOptions,
-                          });
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Rounding Option */}
-                <div>
-                  <Label className="mb-2 block">Redondeo de Precios</Label>
-                  <Select
-                    options={[
-                      { value: "10", label: "Redondear a la decena" },
-                      { value: "100", label: "Redondear a la centena" },
-                    ]}
-                    value={variantFormData.roundingOption}
-                    onChange={(e) =>
-                      setVariantFormData({
-                        ...variantFormData,
-                        roundingOption: Number(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label className="mb-2 block">Imágenes de variante</Label>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    id="add-variant-images"
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (files) {
-                        const newImages = Array.from(files).map((f) =>
-                          URL.createObjectURL(f),
-                        );
-                        setVariantFormData((prev) => ({
-                          ...prev,
-                          images: [...prev.images, ...newImages],
-                        }));
-                      }
-                    }}
-                  />
-                  <label htmlFor="add-variant-images">
-                    <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
-                      <Upload className="w-8 h-8 mb-2" />
-                      <span className="text-xs">
-                        Haga clic para subir imágenes (múltiples)
-                      </span>
-                    </div>
-                  </label>
-                  {variantFormData.images.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {variantFormData.images.map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="relative w-20 h-20 rounded-lg overflow-hidden border border-border"
-                        >
-                          <img
-                            src={img}
-                            alt={`Imagen ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setVariantFormData((prev) => ({
-                                ...prev,
-                                images: prev.images.filter((_, i) => i !== idx),
-                              }));
-                            }}
-                            className="absolute top-0 right-0 bg-destructive text-destructive-foreground p-1 rounded-bl-lg"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Mix Configuration */}
-                <div className="bg-muted/30 p-4 rounded-lg border border-border">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <Label className="text-foreground">¿Es un Mix?</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Permite componer este producto de otros productos
-                        existentes
-                      </p>
-                    </div>
-                    <Switch
-                      checked={variantFormData.isMix}
-                      onCheckedChange={(checked) =>
-                        setVariantFormData({
-                          ...variantFormData,
-                          isMix: checked,
-                        })
-                      }
-                    />
-                  </div>
-
-                  {variantFormData.isMix && (
-                    <div className="mt-4 space-y-3">
-                      <div>
-                        <Label className="mb-2 block">
-                          Buscar variante por nombre
-                        </Label>
-                        <Autocomplete
-                          items={
-                            product.variants
-                              .map((v) => ({
-                                id: v.id,
-                                label: v.name,
-                                subtitle: product.name,
-                              }))
-                              .filter(
-                                (v) =>
-                                  !variantFormData.hasComponents.some(
-                                    (c) => c.productVariantId === v.id,
-                                  ),
-                              ) as any
-                          }
-                          selectedIds={[]}
-                          onSelectionChange={(ids) => {
-                            if (ids.length > 0) {
-                              const selectedVariant = product.variants.find(
-                                (v) => v.id === Number(ids[0]),
-                              );
-                              // if (selectedVariant) {
-                              //   setVariantFormData((prev) => ({
-                              //     ...prev,
-                              //     hasComponents: [
-                              //       ...prev.hasComponents,
-                              //       {
-                              //         mixVariantId: variantFormData.id,
-                              //         productVariantId: selectedVariant.id,
-                              //         name: selectedVariant.name,
-                              //         quantity: 1,
-                              //       },
-                              //     ],
-                              //   }));
-                              // }
-                            }
-                          }}
-                          placeholder="Buscar variantes para agregar..."
-                          showBadges={false}
-                          multiSelect={false}
-                        />
-                      </div>
-
-                      {variantFormData.hasComponents.length > 0 ? (
-                        <div className="space-y-2">
-                          <Label className="block">
-                            Variantes seleccionadas
-                          </Label>
-                          {variantFormData.hasComponents.map(
-                            (component, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-2 bg-card p-2 rounded-lg border border-border"
-                              >
-                                {/* <span className="text-sm flex-1">
-                                  {component.name}
-                                </span> */}
-                                <Input
-                                  type="number"
-                                  placeholder="Cant."
-                                  value={component.quantity}
-                                  onChange={(e) => {
-                                    const newComponents = [
-                                      ...variantFormData.hasComponents,
-                                    ];
-                                    newComponents[idx].quantity =
-                                      parseInt(e.target.value) || 1;
-                                    setVariantFormData({
-                                      ...variantFormData,
-                                      hasComponents: newComponents,
-                                    });
-                                  }}
-                                  className="w-20"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setVariantFormData((prev) => ({
-                                      ...prev,
-                                      hasComponents: prev.hasComponents.filter(
-                                        (_, i) => i !== idx,
-                                      ),
-                                    }));
-                                  }}
-                                  className="text-destructive hover:bg-destructive/10 p-1 rounded"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ),
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <VariantForm
+                initialVariantFormState={datosAEditar}
+                handleSave={handleCreateVariant}
+              />
             </Modal>
 
             {/* Mix Dependencies Modal */}
