@@ -38,12 +38,12 @@ export default function ProductDetail() {
   const initialVariantFormState = {
     name: "",
     price: 0,
-    currentStock: "",
-    profitMargin: "",
+    currentStock: 0,
+    profitMargin: 0,
     contentMeasure: "U",
-    requestTime: "",
+    requestTime: 0,
     images: [] as string[],
-    contentAmount: "",
+    contentAmount: 0,
     stockThreshold: 0,
     packagingOptions: ["", "", ""],
     roundingOption: 10,
@@ -73,15 +73,15 @@ export default function ProductDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [product, setProduct] = useState<Product>();
   type variantFormData = {
-    id?: number
+    id?: number;
     name: string;
     contentMeasure: string;
-    currentStock: string;
-    contentAmount?: string;
-    requestTime?: string;
+    currentStock: number;
+    contentAmount?: number;
+    requestTime?: number;
     stockThreshold: number;
     roundingOption: number;
-    profitMargin?: string;
+    profitMargin: number;
     price: number;
     images: string[];
     packagingOptions: string[];
@@ -103,8 +103,8 @@ export default function ProductDetail() {
   const [showMixDependencies, setShowMixDependencies] = useState<
     string | null
   >();
-  const [datosAEditar, setDatosAEditar] = useState<variantFormData | null>(
-    null,
+  const [datosAEditar, setDatosAEditar] = useState<variantFormData>(
+    initialVariantFormState,
   );
 
   const brand = mockBrands.find((b) => b.id === product?.brandId);
@@ -203,19 +203,17 @@ export default function ProductDetail() {
     // setCurrentId(productVariant.id);
     setDatosAEditar({
       name: productVariant.name,
-      contentMeasure: productVariant.contentMeasure,
-      currentStock: productVariant.currentStock.toString(),
+      contentMeasure: productVariant.contentMeasure.toString(),
+      currentStock: productVariant.currentStock,
       contentAmount: productVariant.contentAmount
-        ? productVariant.contentAmount.toString()
-        : "",
-      requestTime: productVariant.requestTime
-        ? productVariant.requestTime.toString()
-        : "",
+        ? productVariant.contentAmount
+        : 0,
+      requestTime: productVariant.requestTime ? productVariant.requestTime : 0,
       stockThreshold: productVariant.stockThreshold || 0,
       roundingOption: productVariant.roundingOption || 10,
       profitMargin: productVariant.profitMargin
-        ? productVariant.profitMargin.toString()
-        : "",
+        ? productVariant.profitMargin
+        : 0,
       price: productVariant.finalPrice || 0,
       images: productVariant.images || [],
       packagingOptions: productVariant.packagingOptions
@@ -238,13 +236,48 @@ export default function ProductDetail() {
     setShowVariantModal(true);
   };
 
+  const formIsValid = (): boolean => {
+    const {
+      name,
+      currentStock,
+      price,
+      profitMargin,
+      contentMeasure,
+      contentAmount,
+      requestTime,
+      stockThreshold,
+      roundingOption,
+      hasComponents,
+      packagingOptions,
+    } = datosAEditar;
+      (
+      datosAEditar &&
+      name.trim() !== "" &&
+      currentStock >= 0 &&
+      price >= 0 &&
+      (!hasComponents || hasComponents.length == 0
+        ? profitMargin >= 0
+        : true) &&
+      contentMeasure !== "" &&
+      contentAmount &&
+      contentAmount >= 0 &&
+      requestTime &&
+      requestTime >= 0 &&
+      stockThreshold >= 0 &&
+      roundingOption >= 0 &&
+      packagingOptions &&
+      packagingOptions.length >= 1
+    );
+    //Agregar validación de mix
+  };
+
   const handleCloseVariant = () => {
     setShowVariantModal(false);
     // setVariantFormData(initialVariantFormState);
   };
 
-  const handleCreateVariant = () => {
-    console.log("Creating variant:", { ...datosAEditar })
+  const handleSubmitVariant = () => {
+    console.log("Creating variant:", { ...datosAEditar });
     setIsEditing(false);
   };
 
@@ -680,8 +713,9 @@ export default function ProductDetail() {
                     Cancelar
                   </Button>
                   <Button
+                    disabled={!formIsValid()}
                     onClick={() => {
-                      handleCreateVariant();
+                      handleSubmitVariant();
                       setShowVariantModal(false);
                     }}
                   >
@@ -692,7 +726,7 @@ export default function ProductDetail() {
             >
               <VariantForm
                 initialVariantFormState={datosAEditar}
-                handleSave={handleCreateVariant}
+                handleSave={handleSubmitVariant}
               />
             </Modal>
 
