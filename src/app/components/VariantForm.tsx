@@ -306,7 +306,7 @@ const VariantForm = (props: {
           <Label className="mb-2 block">Imágenes de variante</Label>
           <Controller 
             control={control}
-            name="images"
+            name="image"
             render={({ field }) => (
               <>
               <input
