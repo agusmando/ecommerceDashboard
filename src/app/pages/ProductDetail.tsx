@@ -29,7 +29,7 @@ import { ArrowLeft, Edit, Trash2, Plus, Upload, X, Eye } from "lucide-react";
 import { formatCurrency, formatDateTime } from "../lib/utils";
 import BaseService from "../service/baseService";
 import { Product, ProductVariant } from "../types";
-import VariantForm from "../components/VariantForm";
+import VariantForm, { VariantFormValues } from "../components/VariantForm";
 
 const productService = new BaseService<Product>("product");
 export default function ProductDetail() {
@@ -61,6 +61,7 @@ export default function ProductDetail() {
     }[],
     isMix: false,
   };
+  const [variantFormStatus, setVariantFormStatus] = useState<boolean>(false)
   const [isEditing, setIsEditing] = useState(false);
 
   // Variant form state
@@ -236,48 +237,13 @@ export default function ProductDetail() {
     setShowVariantModal(true);
   };
 
-  const formIsValid = (): boolean => {
-    const {
-      name,
-      currentStock,
-      price,
-      profitMargin,
-      contentMeasure,
-      contentAmount,
-      requestTime,
-      stockThreshold,
-      roundingOption,
-      hasComponents,
-      packagingOptions,
-    } = datosAEditar;
-      (
-      datosAEditar &&
-      name.trim() !== "" &&
-      currentStock >= 0 &&
-      price >= 0 &&
-      (!hasComponents || hasComponents.length == 0
-        ? profitMargin >= 0
-        : true) &&
-      contentMeasure !== "" &&
-      contentAmount &&
-      contentAmount >= 0 &&
-      requestTime &&
-      requestTime >= 0 &&
-      stockThreshold >= 0 &&
-      roundingOption >= 0 &&
-      packagingOptions &&
-      packagingOptions.length >= 1
-    );
-    //Agregar validación de mix
-  };
-
   const handleCloseVariant = () => {
     setShowVariantModal(false);
     // setVariantFormData(initialVariantFormState);
   };
 
-  const handleSubmitVariant = () => {
-    console.log("Creating variant:", { ...datosAEditar });
+  const handleSubmitVariant = (data: VariantFormValues) => {
+    console.log("Creating variant:", { data });
     setIsEditing(false);
   };
 
@@ -713,11 +679,9 @@ export default function ProductDetail() {
                     Cancelar
                   </Button>
                   <Button
-                    disabled={!formIsValid()}
-                    onClick={() => {
-                      handleSubmitVariant();
-                      setShowVariantModal(false);
-                    }}
+                    disabled={!variantFormStatus}
+                    type="submit"
+                    form="variant-form"
                   >
                     Crear
                   </Button>
@@ -725,8 +689,12 @@ export default function ProductDetail() {
               }
             >
               <VariantForm
+                setVariantFormStatus={setVariantFormStatus}
                 initialVariantFormState={datosAEditar}
-                handleSave={handleSubmitVariant}
+                handleSave={(data: VariantFormValues) => {
+                  handleSubmitVariant(data)
+                  setShowVariantModal(false)
+                }}
               />
             </Modal>
 

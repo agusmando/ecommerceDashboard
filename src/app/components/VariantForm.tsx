@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useFieldArray, useForm, Controller} from "react-hook-form";
+import { useFieldArray, useForm, Controller, Resolver } from "react-hook-form";
 import { Input } from "./Input";
 import { Select } from "./Select";
 import { Switch } from "./ui/switch";
@@ -21,48 +21,62 @@ const UNITS = [
 
 const VariantSchema = z.object({
   id: z.number().optional(),
-  name: z.string().optional(),
-  currentStock: z.number().nonnegative(),
-  price: z.number().nonnegative(),
-  profitMargin: z.number().nonnegative().max(100).min(1),
-  contentMeasure: z.string(),
-  contentAmount: z.number().nonnegative().optional(),
-  requestTime: z.number().nonnegative().optional(),
-  stockThreshold: z.number().nonnegative().optional(),
-  roundingOption: z.number().nonnegative(),
-  packagingOptions: z.array(z.object({ value: z.string() })).optional(),
+  name: z.string().min(1, "El nombre es requerido"),
+  currentStock: z.coerce.number().nonnegative(),
+  price: z.coerce.number().nonnegative(),
+  profitMargin: z.coerce.number().nonnegative().max(100).min(1),
+  contentMeasure: z.string().min(1, "Seleccione una unidad"),
+  contentAmount: z.coerce.number().nonnegative().optional(),
+  requestTime: z.coerce.number().nonnegative().optional(),
+  stockThreshold: z.coerce.number().nonnegative().optional(),
+  roundingOption: z.coerce.number().nonnegative(),
+  packagingOptions: z.array(z.string()).optional(),
+  images: z.array(z.string()).optional(),
+  isMix: z.boolean().default(false),
   hasComponents: z
     .array(
       z.object({
-        // active: z.boolean(),
-        mixVariantId: z.number(),
-        productVariantId: z.number(),
-        quantity: z.number(),
+        productVariantId: z.coerce.number(),
+        quantity: z.coerce.number().min(1),
       }),
     )
-    .optional(),
+    .default([]),
 });
 
-type VariantFormValues = z.infer<typeof VariantSchema>;
+export type VariantFormValues = z.infer<typeof VariantSchema>;
 
-const VariantForm = (props: {
-  initialVariantFormState: any;
-  handleSave: (variantFormData: any) => void;
-}) => {
-  const [variantFormData, setVariantFormData] = useState(
-    props.initialVariantFormState,
-  );
+interface VariantFormProps {
+  setVariantFormStatus: (isValid: boolean) => void;
+  initialVariantFormState: Partial<VariantFormValues>;
+  handleSave: (data: VariantFormValues) => void;
+ onValuesChange?: (values: VariantFormValues) => void;
+}
 
+const VariantForm = ({
+  setVariantFormStatus,
+  initialVariantFormState,
+  handleSave,
+  onValuesChange,
+}: VariantFormProps) => {
   const {
     register,
     control,
-    formState: { errors },
+    formState: { isSubmitting, isValid, isLoading, errors },
     handleSubmit,
     watch,
     setValue,
   } = useForm<VariantFormValues>({
-    defaultValues: props.initialVariantFormState,
-    resolver: zodResolver(VariantSchema),
+    defaultValues: {
+      ...initialVariantFormState,
+      packagingOptions: initialVariantFormState.packagingOptions || [
+        "",
+        "",
+        "",
+      ],
+      hasComponents: initialVariantFormState.hasComponents || [],
+    },
+    resolver: zodResolver(VariantSchema) as Resolver<VariantFormValues>,
+    mode: "onChange",
   });
 
   // componentes del mix
@@ -70,71 +84,62 @@ const VariantForm = (props: {
     fields: componentsFields,
     append: appendComp,
     remove: removeComp,
-    replace: replaceComp,
   } = useFieldArray({
     control,
     name: "hasComponents",
   });
 
-  // packagingOptions como field array
-  const {
-    fields: packagingFields,
-    append,
-    remove,
-    replace,
-  } = useFieldArray({
-    control,
-    name: "packagingOptions",
-  });
+  // Observamos TODOS los valores del formulario
+  const allValues = watch();
 
-  const onsubmit = (data: VariantFormValues) => {
-    console.log(data)
-    props.handleSave(data);
+  // Notificamos al padre cuando CUALQUIER valor cambie
+  useEffect(() => {
+    if (onValuesChange) {
+      onValuesChange(allValues);
+    }
+  }, [allValues, onValuesChange]);
+
+  // Observamos cambios en valores específicos
+  const contentMeasure = watch("contentMeasure");
+  const isMix = watch("isMix");
+  const images = watch("images") || [];
+
+  // Notificar al padre sobre el estado de validez
+ // VariantForm.tsx
+
+// Asegúrate de incluir todas las dependencias necesarias en el useEffect
+useEffect(() => {
+  // Notificamos al padre si el formulario es válido y NO se está enviando ya.
+  setVariantFormStatus(isValid && !isSubmitting);
+}, [isValid, isSubmitting, setVariantFormStatus]);
+ 
+  useEffect(() => {
+    console.log("status", errors)
+  }, []);
+
+  const onFormSubmit = (data: VariantFormValues) => {
+    handleSave(data);
   };
 
   return (
     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-      <form onSubmit={handleSubmit(onsubmit)}>
+      <form id="variant-form" onSubmit={handleSubmit(onFormSubmit)}>
         <div className="grid grid-cols-2 gap-4">
-          {/* <Controller 
-            {control}
-            name="name"
-            render={({ field }) => (
-              <Input
-                {...field}
-                label="Nombre Variante"
-                placeholder="ej: Estándar, 500g, Pack x3"
-                value={variantFormData.name}
-                onChange={(e) =>
-                  setVariantFormData({
-                    ...variantFormData,
-                    name: e.target.value,
-                  })
-                }
-              />
-            )}
-          /> */}
           <Input
             label="Nombre Variante"
             placeholder="ej: Estándar, 500g, Pack x3"
-            value={variantFormData.name}
             {...register("name")}
-            onChange={(e) =>
-              setVariantFormData({
-                ...variantFormData,
-                name: e.target.value,
-              })
-            }
+            error={errors.name?.message}
           />
           <Controller
-            control={control} 
-            name="contentMeasure"  
+            control={control}
+            name="contentMeasure"
             render={({ field }) => (
               <Select
                 {...field}
                 label="Unidad (Variante)"
                 options={UNITS}
-                value={variantFormData.contentMeasure}
+                onChange={(e) => field.onChange(e.target.value)}
               />
             )}
           />
@@ -146,26 +151,14 @@ const VariantForm = (props: {
             type="number"
             {...register("price")}
             placeholder="0.00"
-            value={variantFormData.price}
-            onChange={(e) =>
-              setVariantFormData({
-                ...variantFormData,
-                price: Number(e.target.value),
-              })
-            }
+            error={errors.price?.message}
           />
           <Input
             label="Margen de Ganancia (%)"
             type="number"
             {...register("profitMargin")}
             placeholder="Ej: 30"
-            value={variantFormData.profitMargin}
-            onChange={(e) =>
-              setVariantFormData({
-                ...variantFormData,
-                profitMargin: e.target.value,
-              })
-            }
+            error={errors.profitMargin?.message}
           />
         </div>
 
@@ -175,45 +168,26 @@ const VariantForm = (props: {
             type="number"
             {...register("currentStock")}
             placeholder="0"
-            value={variantFormData.currentStock}
-            onChange={(e) =>
-              setVariantFormData({
-                ...variantFormData,
-                currentStock: e.target.value,
-              })
-            }
+            error={errors.currentStock?.message}
           />
           <Input
             label="Stock bajo"
             type="number"
             {...register("stockThreshold")}
             placeholder="Opcional"
-            value={variantFormData.stockThreshold}
-            onChange={(e) =>
-              setVariantFormData({
-                ...variantFormData,
-                stockThreshold: Number(e.target.value),
-              })
-            }
+            error={errors.currentStock?.message}
           />
           <Input
             label="Contenido (ej: 90ml)"
             type="number"
             placeholder="Opcional"
             {...register("contentAmount")}
-            value={variantFormData.contentAmount}
-            onChange={(e) =>
-              setVariantFormData({
-                ...variantFormData,
-                contentAmount: e.target.value,
-              })
-            }
+            error={errors.contentAmount?.message}
           />
         </div>
 
         {/* Packaging Options for bulk products */}
-        {(variantFormData.contentMeasure === "KG" ||
-          variantFormData.contentMeasure === "G") && (
+        {(contentMeasure === "KG" || contentMeasure === "G") && (
           <div className="bg-muted/30 p-4 my-4 rounded-lg border border-border">
             <Label className="mb-2 block">
               Opciones de Empaque (Producto a granel)
@@ -222,55 +196,21 @@ const VariantForm = (props: {
               Ingrese hasta 3 opciones de empaque para este producto a granel
             </p>
             <div className="grid grid-cols-3 gap-3">
-              <Input
-                placeholder="ej: 100"
-                type="number"
-                {...register("packagingOptions.0")}
-                value={variantFormData.packagingOptions[0]}
-                onChange={(e) => {
-                  const newOptions = [...variantFormData.packagingOptions];
-                  newOptions[0] = e.target.value;
-                  setVariantFormData({
-                    ...variantFormData,
-                    packagingOptions: newOptions,
-                  });
-                }}
-              />
-              <Input
-                placeholder="ej: 250"
-                type="number"
-                {...register("packagingOptions.1")}
-                value={variantFormData.packagingOptions[1]}
-                onChange={(e) => {
-                  const newOptions = [...variantFormData.packagingOptions];
-                  newOptions[1] = e.target.value;
-                  setVariantFormData({
-                    ...variantFormData,
-                    packagingOptions: newOptions,
-                  });
-                }}
-              />
-              <Input
-                placeholder="ej: 500"
-                type="number"
-                {...register("packagingOptions.2")}
-                value={variantFormData.packagingOptions[2]}
-                onChange={(e) => {
-                  const newOptions = [...variantFormData.packagingOptions];
-                  newOptions[2] = e.target.value;
-                  setVariantFormData({
-                    ...variantFormData,
-                    packagingOptions: newOptions,
-                  });
-                }}
-              />
+              {[0, 1, 2].map((index) => (
+                <Input
+                  placeholder="ej: 100"
+                  type="number"
+                  key={index}
+                  {...register(`packagingOptions.${index}`)}
+                />
+              ))}
             </div>
           </div>
         )}
 
         {/* Rounding Option */}
         <div className="grid grid-cols-2 gap-4">
-          <Controller 
+          <Controller
             control={control}
             name="roundingOption"
             render={({ field }) => (
@@ -281,14 +221,9 @@ const VariantForm = (props: {
                   { value: "10", label: "Redondear a la decena" },
                   { value: "100", label: "Redondear a la centena" },
                 ]}
-                value={variantFormData.roundingOption}
                 onChange={(e) => {
-                  field.onChange(Number(e.target.value))
-                  setVariantFormData({
-                    ...variantFormData,
-                    roundingOption: Number(e.target.value),
-                  })}
-                }
+                  field.onChange(Number(e.target.value));
+                }}
               />
             )}
           />
@@ -298,78 +233,73 @@ const VariantForm = (props: {
             type="number"
             {...register("requestTime")}
             placeholder="Opcional"
-            value={variantFormData.requestTime}
+            error={errors.requestTime?.message}
           />
         </div>
 
         <div>
-          <Label className="mb-2 block">Imágenes de variante</Label>
-          <Controller 
+          <Controller
             control={control}
-            name="image"
+            name="images"
             render={({ field }) => (
               <>
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                id="add-variant-images"
-                className="hidden"
-                onChange={(e) => {
-                  field.onChange(e.target.files)
-                  const files = e.target.files;
-                  if (files) {
-                    const newImages = Array.from(files).map((f) =>
-                      URL.createObjectURL(f),
-                    );
-                    setVariantFormData((prev: any) => ({
-                      ...prev,
-                      images: [...prev.images, ...newImages],
-                    }));
-                  }
-                }}
+                <Label className="mb-2 block">Imágenes de variante</Label>
+                <label htmlFor="add-variant-images">
+                  <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
+                    <Upload className="w-8 h-8 mb-2" />
+                    <span className="text-xs">
+                      Haga clic para subir imágenes (múltiples)
+                    </span>
+                  </div>
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  id="add-variant-images"
+                  className="hidden"
+                  onChange={(e) => {
+                    field.onChange(e.target.files);
+                    const files = e.target.files;
+                    if (files) {
+                      const newUrls = Array.from(files).map((f) =>
+                        URL.createObjectURL(f),
+                      );
+                      setValue("images", [...images, ...newUrls], {
+                        shouldValidate: true,
+                      });
+                    }
+                  }}
                 />
               </>
             )}
           />
-          <label htmlFor="add-variant-images">
-            <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
-              <Upload className="w-8 h-8 mb-2" />
-              <span className="text-xs">
-                Haga clic para subir imágenes (múltiples)
-              </span>
-            </div>
-          </label>
-          {variantFormData.images.length > 0 ? (
+          {images.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
-              {variantFormData.images.map(
-                (img: string | undefined, idx: number) => (
-                  <div
-                    key={idx}
-                    className="relative w-20 h-20 rounded-lg overflow-hidden border border-border"
+              {images.map((img: string | undefined, idx: number) => (
+                <div
+                  key={idx}
+                  className="relative w-20 h-20 rounded-lg overflow-hidden border border-border"
+                >
+                  <img
+                    src={img}
+                    alt={`Imagen ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue(
+                        "images",
+                        images.filter((_, i) => i !== idx),
+                      );
+                    }}
+                    className="absolute top-0 right-0 bg-destructive text-destructive-foreground p-1 rounded-bl-lg"
                   >
-                    <img
-                      src={img}
-                      alt={`Imagen ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVariantFormData((prev: any) => ({
-                          ...prev,
-                          images: prev.images.filter(
-                            (_: any, i: number) => i !== idx,
-                          ),
-                        }));
-                      }}
-                      className="absolute top-0 right-0 bg-destructive text-destructive-foreground p-1 rounded-bl-lg"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ),
-              )}
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
             </div>
           ) : null}
         </div>
@@ -383,114 +313,124 @@ const VariantForm = (props: {
                 Permite componer este producto de otros productos existentes
               </p>
             </div>
-            <Switch
-              checked={variantFormData.isMix}
-              onCheckedChange={(checked) =>
-                setVariantFormData({
-                  ...variantFormData,
-                  isMix: checked,
-                })
-              }
+            <Controller
+              control={control}
+              name="isMix"
+              render={({ field }) => (
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              )}
             />
           </div>
 
-          {variantFormData.isMix && (
+          {/* {isMix && (
             <div className="mt-4 space-y-3">
               <div>
                 <Label className="mb-2 block">Buscar variante por nombre</Label>
-                {/* <Autocomplete
-                items={
-                  product.variants
-                    .map((v) => ({
-                      id: v.id,
-                      label: v.name,
-                      subtitle: product.name,
-                    }))
-                    .filter(
-                      (v) =>
-                        !variantFormData.hasComponents.some(
-                          (c) => c.productVariantId === v.id,
-                        ),
-                    ) as any
-                }
-                selectedIds={[]}
-                onSelectionChange={(ids) => {
-                  if (ids.length > 0) {
-                    const selectedVariant = product.variants.find(
-                      (v) => v.id === Number(ids[0]),
-                    );
-                    // if (selectedVariant) {
-                    //   setVariantFormData((prev: any) => ({
-                    //     ...prev,
-                    //     hasComponents: [
-                    //       ...prev.hasComponents,
-                    //       {
-                    //         mixVariantId: variantFormData.id,
-                    //         productVariantId: selectedVariant.id,
-                    //         name: selectedVariant.name,
-                    //         quantity: 1,
-                    //       },
-                    //     ],
-                    //   }));
-                    // }
+                <Autocomplete
+                  items={
+                    [
+                      {
+                        id: 1,
+                        name: "Variante 1",
+                        product: { id: 1, name: "Producto 1" },
+                      },
+                      {
+                        id: 2,
+                        name: "Variante 2",
+                        product: { id: 2, name: "Producto 2" },
+                      },
+                    ]
+                      .map((v) => ({
+                        id: v.id,
+                        label: v.name,
+                        subtitle: v.product.name,
+                      }))
+                      // .filter(
+                      //   (v) =>
+                      //     hasComponents.some(
+                      //       (c) => c.productVariantId === v.id,
+                      //     ),
+                      // ) as any
                   }
-                }}
-                placeholder="Buscar variantes para agregar..."
-                showBadges={false}
-                multiSelect={false}
-              /> */}
+                  selectedIds={[]}
+                  onSelectionChange={(ids) => {
+                    if (ids.length > 0) {
+                      const selectedVariant = [
+                        { id: 1, name: "Variante 1" },
+                        { id: 2, name: "Variante 2" },
+                      ].find((v) => v.id === Number(ids[0]));
+                      // if (selectedVariant) {
+                      //   setVariantFormData((prev: any) => ({
+                      //     ...prev,
+                      //     hasComponents: [
+                      //       ...prev.hasComponents,
+                      //       {
+                      //         mixVariantId: variantFormData.id,
+                      //         productVariantId: selectedVariant.id,
+                      //         name: selectedVariant.name,
+                      //         quantity: 1,
+                      //       },
+                      //     ],
+                      //   }));
+                      // }
+                    }
+                  }}
+                  placeholder="Buscar variantes para agregar..."
+                  showBadges={false}
+                  multiSelect={false}
+                />
               </div>
 
-              {variantFormData.hasComponents.length > 0 ? (
+              {hasComponents.length > 0 ? (
                 <div className="space-y-2">
                   <Label className="block">Variantes seleccionadas</Label>
-                  {variantFormData.hasComponents.map(
-                    (component: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2 bg-card p-2 rounded-lg border border-border"
-                      >
-                        {/* <span className="text-sm flex-1">
+                  {hasComponents.map((component: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 bg-card p-2 rounded-lg border border-border"
+                    >
+                      <span className="text-sm flex-1">
                                   {component.name}
-                                </span> */}
-                        <Input
-                          type="number"
-                          placeholder="Cant."
-                          value={component.quantity}
-                          onChange={(e) => {
-                            const newComponents = [
-                              ...variantFormData.hasComponents,
-                            ];
-                            newComponents[idx].quantity =
-                              parseInt(e.target.value) || 1;
-                            setVariantFormData({
-                              ...variantFormData,
-                              hasComponents: newComponents,
-                            });
-                          }}
-                          className="w-20"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setVariantFormData((prev: any) => ({
-                              ...prev,
-                              hasComponents: prev.hasComponents.filter(
-                                (_: any, i: number) => i !== idx,
-                              ),
-                            }));
-                          }}
-                          className="text-destructive hover:bg-destructive/10 p-1 rounded"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ),
-                  )}
+                                </span> 
+                      <Input
+                        type="number"
+                        placeholder="Cant."
+                        value={component.quantity}
+                        onChange={(e) => {
+                          const newComponents = [...hasComponents];
+                          newComponents[idx].quantity =
+                            parseInt(e.target.value) || 1;
+                          setVariantFormData({
+                            ...variantFormData,
+                            hasComponents: newComponents,
+                          });
+                        }}
+                        className="w-20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVariantFormData((prev: any) => ({
+                            ...prev,
+                            hasComponents: prev.hasComponents.filter(
+                              (_: any, i: number) => i !== idx,
+                            ),
+                          }));
+                        }}
+                        className="text-destructive hover:bg-destructive/10 p-1 rounded"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               ) : null}
             </div>
           )}
+           */}
         </div>
       </form>
     </div>
