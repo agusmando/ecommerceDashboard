@@ -1,11 +1,14 @@
 // Types for the ecommerce dashboard
 
 export interface User {
-  id: number;
+  id?: number;
+  supertokensId?: string;
   name: string;
   email: string;
-  role: "Admin" | "Staff";
-  avatar?: string;
+  role: string;
+  avatarUrl?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Brand {
@@ -34,13 +37,14 @@ export interface Tag {
 }
 
 export interface ProductVariant {
-  id: number;
-  name: string;
+  id?: number;
+  productId: number;
+  name?: string;
   price: number;
   currentStock: number;
   stockThreshold: number;
-  type: "normal" | "mix";
-  active: boolean;
+  type?: "normal" | "mix";
+  active?: boolean;
   profitMargin?: number;
   unit?: string;
   requestTime?: number; // Days or hours? Assuming days/hours as number
@@ -54,13 +58,13 @@ export interface ProductVariant {
     productVariantId: number;
     name?: string; // For display purposes
     quantity: number;
-  }[];
+  }[] | [];
   isComponentOf: {
     mixVariantId: number;
     productVariantId: number;
     name?: string; // For display purposes
     quantity: number;
-  }[];
+  }[] | [];
   finalPrice?: number
 }
 

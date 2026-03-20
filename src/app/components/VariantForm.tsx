@@ -123,9 +123,9 @@ useEffect(() => {
 
   return (
     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-      <form id="variant-form" onSubmit={handleSubmit(onFormSubmit)}>
+      <form id="variant-form" onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 ">
         <div className="grid grid-cols-2 gap-4">
-          <Input
+          <Input  
             label="Nombre Variante"
             placeholder="ej: Estándar, 500g, Pack x3"
             {...register("name")}
@@ -243,7 +243,7 @@ useEffect(() => {
             name="images"
             render={({ field }) => (
               <>
-                <Label className="mb-2 block">Imágenes de variante</Label>
+                <Label className="mb-2 block text-base">Imágenes de variante</Label>
                 <label htmlFor="add-variant-images">
                   <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
                     <Upload className="w-8 h-8 mb-2" />

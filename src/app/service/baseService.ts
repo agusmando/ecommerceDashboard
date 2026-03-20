@@ -55,4 +55,9 @@ export default class BaseService<T> {
     const response = await axios.get(this.baseUrl + this.route + "/" + id);
     return response.data;
   }
+
+  async create(data: T): Promise<BaseResponse<T>> {
+    const response = await axios.post(this.baseUrl + this.route, data);
+    return response.data;
+  }
 }

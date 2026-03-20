@@ -32,6 +32,7 @@ import { Product, ProductVariant } from "../types";
 import VariantForm, { VariantFormValues } from "../components/VariantForm";
 
 const productService = new BaseService<Product>("product");
+const productVariantService = new BaseService<ProductVariant>("product/variant");
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -75,7 +76,7 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product>();
   type variantFormData = {
     id?: number;
-    name: string;
+    name?: string;
     contentMeasure: string;
     currentStock: number;
     contentAmount?: number;
@@ -115,7 +116,7 @@ export default function ProductDetail() {
     (m) => m.productId === product?.id,
   );
   const relatedOffers = mockOffers.filter((o) =>
-    product?.variants.some((v) => o.variantId?.includes(v.id)),
+    product?.variants.some((v) => o.variantId?.includes(v.id as any)),
   );
 
   const tabs = [
@@ -135,10 +136,11 @@ export default function ProductDetail() {
     );
   };
 
-  const getStatusBadge = (active: boolean) => {
+  const getStatusBadge = (active?: boolean) => {
+    const isActive = !!active;
     return (
-      <Badge variant={active ? "success" : "default"}>
-        {active ? "Activo" : "Inactivo"}
+      <Badge variant={isActive ? "success" : "default"}>
+        {isActive ? "Activo" : "Inactivo"}
       </Badge>
     );
   };
@@ -244,6 +246,22 @@ export default function ProductDetail() {
 
   const handleSubmitVariant = (data: VariantFormValues) => {
     console.log("Creating variant:", { data });
+    const payload = {
+      ...data,
+      productId: Number(id),
+      // Ensure each component includes mixVariantId (default to 0 if missing)
+      hasComponents: (data.hasComponents ?? []).map((c) => ({
+        mixVariantId: (c as any).mixVariantId ?? 0,
+        productVariantId: c.productVariantId,
+        // preserve optional name if present
+        ...( (c as any).name ? { name: (c as any).name } : {} ),
+        quantity: c.quantity,
+      })),
+      stockThreshold: data.stockThreshold ?? 0,
+      isComponentOf: [],
+    };
+    // cast via unknown to avoid overly strict structural mismatch errors
+    productVariantService.create(payload as unknown as ProductVariant);
     setIsEditing(false);
   };
 
@@ -495,7 +513,7 @@ export default function ProductDetail() {
                               : "-"}
                           </TableCell>
                           <TableCell>
-                            {getStatusBadge(variant.active)}
+                            {getStatusBadge(variant.active != undefined ? true : false)}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
@@ -506,7 +524,7 @@ export default function ProductDetail() {
                                   size="sm"
                                   onClick={() =>
                                     setShowMixDependencies(
-                                      variant.id.toString(),
+                                      variant.id ? variant.id.toString(): "",
                                     )
                                   }
                                   tooltip="Ver componentes del mix"
