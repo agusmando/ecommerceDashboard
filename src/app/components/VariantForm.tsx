@@ -68,12 +68,12 @@ const VariantForm = ({
   } = useForm<VariantFormValues>({
     defaultValues: {
       ...initialVariantFormState,
-      packagingOptions: initialVariantFormState.packagingOptions || [
-        "",
-        "",
-        "",
-      ],
-      hasComponents: initialVariantFormState.hasComponents || [],
+      // packagingOptions: initialVariantFormState.packagingOptions || [
+      //   "",
+      //   "",
+      //   "",
+      // ],
+      // hasComponents: initialVariantFormState.hasComponents || [],
     },
     resolver: zodResolver(VariantSchema) as Resolver<VariantFormValues>,
     mode: "onChange",
@@ -111,6 +111,7 @@ const VariantForm = ({
 useEffect(() => {
   // Notificamos al padre si el formulario es válido y NO se está enviando ya.
   setVariantFormStatus(isValid && !isSubmitting);
+  console.log("isValid", isValid, "isSubmitting", isSubmitting, "errors", errors);
 }, [isValid, isSubmitting, setVariantFormStatus]);
  
   useEffect(() => {

@@ -32,7 +32,9 @@ import { Product, ProductVariant } from "../types";
 import VariantForm, { VariantFormValues } from "../components/VariantForm";
 
 const productService = new BaseService<Product>("product");
-const productVariantService = new BaseService<ProductVariant>("product/variant");
+const productVariantService = new BaseService<ProductVariant>(
+  "product/variant",
+);
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -62,7 +64,7 @@ export default function ProductDetail() {
     }[],
     isMix: false,
   };
-  const [variantFormStatus, setVariantFormStatus] = useState<boolean>(false)
+  const [variantFormStatus, setVariantFormStatus] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState(false);
 
   // Variant form state
@@ -215,9 +217,9 @@ export default function ProductDetail() {
       stockThreshold: productVariant.stockThreshold || 0,
       roundingOption: productVariant.roundingOption || 10,
       profitMargin: productVariant.profitMargin
-        ? productVariant.profitMargin
+        ? productVariant.profitMargin * 100
         : 0,
-      price: productVariant.finalPrice || 0,
+      price: productVariant.price || 0,
       images: productVariant.images || [],
       packagingOptions: productVariant.packagingOptions
         ? productVariant.packagingOptions.map((p) => p.toString())
@@ -245,23 +247,23 @@ export default function ProductDetail() {
   };
 
   const handleSubmitVariant = (data: VariantFormValues) => {
-    console.log("Creating variant:", { data });
-    const payload = {
-      ...data,
-      productId: Number(id),
-      // Ensure each component includes mixVariantId (default to 0 if missing)
-      hasComponents: (data.hasComponents ?? []).map((c) => ({
-        mixVariantId: (c as any).mixVariantId ?? 0,
-        productVariantId: c.productVariantId,
-        // preserve optional name if present
-        ...( (c as any).name ? { name: (c as any).name } : {} ),
-        quantity: c.quantity,
-      })),
-      stockThreshold: data.stockThreshold ?? 0,
-      isComponentOf: [],
-    };
-    // cast via unknown to avoid overly strict structural mismatch errors
-    productVariantService.create(payload as unknown as ProductVariant);
+    console.log("Creating variant:",  data );
+    // const payload = {
+    //   ...data,
+    //   productId: Number(id),
+    //   // Ensure each component includes mixVariantId (default to 0 if missing)
+    //   hasComponents: (data.hasComponents ?? []).map((c) => ({
+    //     mixVariantId: (c as any).mixVariantId ?? 0,
+    //     productVariantId: c.productVariantId,
+    //     // preserve optional name if present
+    //     ...((c as any).name ? { name: (c as any).name } : {}),
+    //     quantity: c.quantity,
+    //   })),
+    //   stockThreshold: data.stockThreshold ?? 0,
+    //   isComponentOf: [],
+    // };
+    // // cast via unknown to avoid overly strict structural mismatch errors
+    // productVariantService.create(payload as unknown as ProductVariant);
     setIsEditing(false);
   };
 
@@ -468,6 +470,8 @@ export default function ProductDetail() {
                         <TableHead>ID</TableHead>
                         <TableHead>Nombre</TableHead>
                         <TableHead>Precio</TableHead>
+                        <TableHead>Ganancia</TableHead>
+                        <TableHead>Precio Final</TableHead>
                         <TableHead>Stock Actual</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead>Contenido</TableHead>
@@ -483,10 +487,24 @@ export default function ProductDetail() {
                           </TableCell>
                           <TableCell>{variant.name}</TableCell>
                           <TableCell>
-                            {variant.finalPrice
-                              ? formatCurrency(variant.finalPrice)
+                            {variant.hasComponents.length > 0
+                              ? "-"
                               : variant.price
                                 ? formatCurrency(variant.price)
+                                : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {variant.hasComponents.length > 0
+                              ? "-"
+                              : Number(variant.profitMargin) * 100 + "%"}
+                          </TableCell>
+                          <TableCell>
+                            {variant.hasComponents.length > 0
+                              ? variant.price
+                                ? formatCurrency(variant.price)
+                                : "-"
+                              : variant.finalPrice
+                                ? formatCurrency(variant.finalPrice)
                                 : "-"}
                           </TableCell>
                           <TableCell>
@@ -513,7 +531,9 @@ export default function ProductDetail() {
                               : "-"}
                           </TableCell>
                           <TableCell>
-                            {getStatusBadge(variant.active != undefined ? true : false)}
+                            {getStatusBadge(
+                              variant.active != undefined ? true : false,
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
@@ -524,7 +544,7 @@ export default function ProductDetail() {
                                   size="sm"
                                   onClick={() =>
                                     setShowMixDependencies(
-                                      variant.id ? variant.id.toString(): "",
+                                      variant.id ? variant.id.toString() : "",
                                     )
                                   }
                                   tooltip="Ver componentes del mix"
@@ -536,6 +556,7 @@ export default function ProductDetail() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEditVariant(variant)}
+                                  tooltip="Editar variante"
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -683,7 +704,7 @@ export default function ProductDetail() {
                 setShowVariantModal(false);
                 setDatosAEditar(initialVariantFormState);
               }}
-              title="Agregar Variante"
+              title={JSON.stringify(datosAEditar) !== JSON.stringify(initialVariantFormState) ? "Editar Variante" : "Crear Variante"}
               size="lg"
               footer={
                 <>
@@ -701,7 +722,7 @@ export default function ProductDetail() {
                     type="submit"
                     form="variant-form"
                   >
-                    Crear
+                    {JSON.stringify(datosAEditar) !== JSON.stringify(initialVariantFormState) ? "Editar" : "Crear"}
                   </Button>
                 </>
               }
@@ -710,8 +731,8 @@ export default function ProductDetail() {
                 setVariantFormStatus={setVariantFormStatus}
                 initialVariantFormState={datosAEditar}
                 handleSave={(data: VariantFormValues) => {
-                  handleSubmitVariant(data)
-                  setShowVariantModal(false)
+                  handleSubmitVariant(data);
+                  setShowVariantModal(false);
                 }}
               />
             </Modal>
