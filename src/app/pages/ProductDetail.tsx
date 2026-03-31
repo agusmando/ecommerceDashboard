@@ -252,6 +252,8 @@ export default function ProductDetail() {
     //   ...data,
     //   productId: Number(id),
     //   // Ensure each component includes mixVariantId (default to 0 if missing)
+    //   profitMargin: data.profitMargin / 100,
+    //   packagingOptions: (data.packagingOptions ?? [])[0] == "" ? [] : data.packagingOptions ?? [],
     //   hasComponents: (data.hasComponents ?? []).map((c) => ({
     //     mixVariantId: (c as any).mixVariantId ?? 0,
     //     productVariantId: c.productVariantId,

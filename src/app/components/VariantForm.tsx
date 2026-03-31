@@ -10,6 +10,9 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { toast } from "sonner";
+import { ProductVariant } from "../types";
 
 const UNITS = [
   { value: "U", label: "Unidad (u)" },
@@ -24,7 +27,7 @@ const VariantSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
   currentStock: z.coerce.number().nonnegative(),
   price: z.coerce.number().nonnegative(),
-  profitMargin: z.coerce.number().nonnegative().max(100).min(1),
+  profitMargin: z.coerce.number().nonnegative().max(100).min(0),
   contentMeasure: z.string().min(1, "Seleccione una unidad"),
   contentAmount: z.coerce.number().nonnegative().optional(),
   requestTime: z.coerce.number().nonnegative().optional(),
@@ -58,6 +61,10 @@ const VariantForm = ({
   handleSave,
   onValuesChange,
 }: VariantFormProps) => {
+  const [confirmCreatingMix, setConfirmCreatingMix] = useState(false);
+  const [confirmRemoveExistingMix, setConfirmRemoveExistingMix] = useState(false);
+  const [variantSearchResult, setVariantSearchResult] = useState<ProductVariant[]>([]);
+  const [SearchingVariant, setIsSearchingVariant] = useState<ProductVariant[]>([]);
   const {
     register,
     control,
@@ -99,13 +106,23 @@ const VariantForm = ({
     }
   }, [allValues, onValuesChange]);
 
+  
   // Observamos cambios en valores específicos
   const contentMeasure = watch("contentMeasure");
   const isMix = watch("isMix");
   const images = watch("images") || [];
-
-  // Notificar al padre sobre el estado de validez
- // VariantForm.tsx
+  const hasComponents = watch("hasComponents") || [];
+  const idVariant = watch("id")
+  
+  useEffect(() => {
+    if (contentMeasure != "KG" && contentMeasure != "G") {
+      setValue("packagingOptions", undefined);
+    } else {
+      if (allValues.packagingOptions == null) {
+        setValue("packagingOptions", ["", "", ""]);
+      }
+    }
+  }, [contentMeasure])
 
 // Asegúrate de incluir todas las dependencias necesarias en el useEffect
 useEffect(() => {
@@ -150,12 +167,14 @@ useEffect(() => {
           <Input
             label="Precio Compra ($)"
             type="number"
+            disabled={isMix}
             {...register("price")}
             placeholder="0.00"
             error={errors.price?.message}
-          />
+            />
           <Input
             label="Margen de Ganancia (%)"
+            disabled={isMix}
             type="number"
             {...register("profitMargin")}
             placeholder="Ej: 30"
@@ -199,7 +218,7 @@ useEffect(() => {
             <div className="grid grid-cols-3 gap-3">
               {[0, 1, 2].map((index) => (
                 <Input
-                  placeholder="ej: 100"
+                  placeholder={`ej: ${index + 1}00g`}
                   type="number"
                   key={index}
                   {...register(`packagingOptions.${index}`)}
@@ -320,64 +339,74 @@ useEffect(() => {
               render={({ field }) => (
                 <Switch
                   checked={field.value}
-                  onCheckedChange={field.onChange}
+                  onCheckedChange={(checked) => {
+                    if (checked ) {
+                      return setConfirmCreatingMix(true);
+                    } else {
+                      if (allValues.hasComponents && allValues.hasComponents.length > 0) {
+                        return setConfirmRemoveExistingMix(true);
+                      }
+                    }
+                    field.onChange(checked);
+
+                  }}
                 />
               )}
             />
           </div>
 
-          {/* {isMix && (
+          {isMix && (
             <div className="mt-4 space-y-3">
               <div>
                 <Label className="mb-2 block">Buscar variante por nombre</Label>
                 <Autocomplete
-                  items={
-                    [
-                      {
-                        id: 1,
-                        name: "Variante 1",
-                        product: { id: 1, name: "Producto 1" },
-                      },
-                      {
-                        id: 2,
-                        name: "Variante 2",
-                        product: { id: 2, name: "Producto 2" },
-                      },
-                    ]
-                      .map((v) => ({
-                        id: v.id,
-                        label: v.name,
-                        subtitle: v.product.name,
-                      }))
+                  // items={
+                  //   [
+                  //     {
+                  //       id: "1",
+                  //       name: "Variante 1",
+                  //       product: { id: "1", name: "Producto 1" },
+                  //     },
+                  //     {
+                  //       id: "2",
+                  //       name: "Variante 2",
+                  //       product: { id: "2", name: "Producto 2" },
+                  //     },
+                  //   ]
+                  //     .map((v) => ({
+                  //       id: v.id,
+                  //       label: v.name,
+                  //       subtitle: v.product.name,
+                  //     }))
                       // .filter(
                       //   (v) =>
                       //     hasComponents.some(
                       //       (c) => c.productVariantId === v.id,
                       //     ),
                       // ) as any
-                  }
-                  selectedIds={[]}
+                  // }
+                  items={variantSearchResult.map((v) => ({
+                    id: v.id,
+                    label: v.name,
+                    subtitle: v.product.name, 
+                  })) || [] }
                   onSelectionChange={(ids) => {
-                    if (ids.length > 0) {
-                      const selectedVariant = [
-                        { id: 1, name: "Variante 1" },
-                        { id: 2, name: "Variante 2" },
-                      ].find((v) => v.id === Number(ids[0]));
-                      // if (selectedVariant) {
-                      //   setVariantFormData((prev: any) => ({
-                      //     ...prev,
-                      //     hasComponents: [
-                      //       ...prev.hasComponents,
-                      //       {
-                      //         mixVariantId: variantFormData.id,
-                      //         productVariantId: selectedVariant.id,
-                      //         name: selectedVariant.name,
-                      //         quantity: 1,
-                      //       },
-                      //     ],
-                      //   }));
-                      // }
-                    }
+
+                    // if (ids.length > 0) {
+                    //   const selectedVariant = [
+                    //     { id: 1, name: "Variante 1" },
+                    //     { id: 2, name: "Variante 2" },
+                    //   ].find((v) => v.id === Number(ids[0]));
+                    //   if (selectedVariant) {
+                    //     setValue("hasComponents",[
+                    //         ...hasComponents,
+                    //         {
+                    //           productVariantId: selectedVariant.id,
+                    //           quantity: 1,
+                    //         },
+                    //       ]);
+                    //   }
+                    // }
                   }}
                   placeholder="Buscar variantes para agregar..."
                   showBadges={false}
@@ -385,17 +414,17 @@ useEffect(() => {
                 />
               </div>
 
-              {hasComponents.length > 0 ? (
+              { hasComponents.length > 0 ? (
                 <div className="space-y-2">
                   <Label className="block">Variantes seleccionadas</Label>
-                  {hasComponents.map((component: any, idx: number) => (
+                  { hasComponents.map((component: any, idx: number) => (
                     <div
                       key={idx}
                       className="flex items-center gap-2 bg-card p-2 rounded-lg border border-border"
                     >
                       <span className="text-sm flex-1">
-                                  {component.name}
-                                </span> 
+                        {component.name}
+                      </span> 
                       <Input
                         type="number"
                         placeholder="Cant."
@@ -404,22 +433,16 @@ useEffect(() => {
                           const newComponents = [...hasComponents];
                           newComponents[idx].quantity =
                             parseInt(e.target.value) || 1;
-                          setVariantFormData({
-                            ...variantFormData,
-                            hasComponents: newComponents,
-                          });
-                        }}
-                        className="w-20"
-                      />
+                            setValue("hasComponents", newComponents);
+                          }}
+                          className="w-20"
+                        />
                       <button
                         type="button"
                         onClick={() => {
-                          setVariantFormData((prev: any) => ({
-                            ...prev,
-                            hasComponents: prev.hasComponents.filter(
+                          setValue("hasComponents", hasComponents.filter(
                               (_: any, i: number) => i !== idx,
-                            ),
-                          }));
+                            ));
                         }}
                         className="text-destructive hover:bg-destructive/10 p-1 rounded"
                       >
@@ -431,9 +454,41 @@ useEffect(() => {
               ) : null}
             </div>
           )}
-           */}
+          
         </div>
       </form>
+      {/* Confirm creating mix Dialog */}
+      <ConfirmDialog
+        isOpen={confirmCreatingMix}
+        onClose={() => setConfirmCreatingMix(false)}
+        onConfirm={() => {
+          setValue("isMix", true);
+          setValue("hasComponents", []);
+          setValue("price", 0);
+          setValue("profitMargin", 0);
+          
+          setConfirmCreatingMix(false);
+        }}
+        title="Crear mix"
+        message="¿Desea crear un mix? El precio de la variante dependerá de los componentes del mix."
+        confirmText="Aceptar"
+        cancelText="Cancelar"
+      />
+     
+      {/* Confirm removing existing mix */}
+      <ConfirmDialog
+        isOpen={confirmRemoveExistingMix}
+        onClose={() => setConfirmRemoveExistingMix(false)}
+        onConfirm={() => {
+          setValue("isMix", false);
+          setValue("hasComponents", []);
+          setConfirmRemoveExistingMix(false);
+        }}
+        title="Atención"
+        message="¿Desea deshabilitar la opción de mix? Se eliminarán los componentes del mix."
+        confirmText="Aceptar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };
