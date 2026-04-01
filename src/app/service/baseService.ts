@@ -24,30 +24,35 @@ export default class BaseService<T> {
       searchParams: [],
     },
   ): Promise<BaseResponse<PaginatedResponse<T>>> {
-    let paramBuilder = "?";
-    if (params.paginate) {
-      paramBuilder += "paginate=true&";
-      if (params.currentPage) {
-        paramBuilder +=
-          "currentPage=" + params.currentPage + "&";
+    try {
+      let paramBuilder = "?";
+      if (params.paginate) {
+        paramBuilder += "paginate=true&";
+        if (params.currentPage) {
+          paramBuilder +=
+            "currentPage=" + params.currentPage + "&";
+        }
+        if (params.amountPerPage) {
+          paramBuilder +=
+            "amountPerPage=" + params.amountPerPage + "&";
+        }
       }
-      if (params.amountPerPage) {
-        paramBuilder +=
-          "amountPerPage=" + params.amountPerPage + "&";
+      if (params.detalle) {
+        paramBuilder += "detalle=" + params.detalle + "&";
       }
+      if (params.searchParams && params.searchParams?.length > 0) {
+        paramBuilder += params.searchParams.map((param) => {
+          return param.key + "=" + param.value + "&";
+        });
+      }
+      const response = await axios.get(
+        this.baseUrl + this.route + paramBuilder,
+      );
+      return response.data;
+    } catch (err: any) {
+      console.log(err);
+      throw err;
     }
-    if (params.detalle) {
-      paramBuilder += "detalle=" + params.detalle + "&";
-    }
-    if (params.searchParams && params.searchParams?.length > 0) {
-      paramBuilder += params.searchParams.map((param) => {
-        return param.key + "=" + param.value + "&";
-      });
-    }
-    const response = await axios.get(
-      this.baseUrl + this.route + paramBuilder,
-    );
-    return response.data;
   }
 
   async getOne(id: number): Promise<BaseResponse<T>> {

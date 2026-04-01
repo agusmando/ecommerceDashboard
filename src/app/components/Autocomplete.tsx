@@ -12,7 +12,7 @@ interface AutocompleteItem {
 interface AutocompleteProps {
   items: AutocompleteItem[];
   isSearching: boolean;
-  setIsSearching: (boolean: boolean) => void;
+  setSearchTerm: (string: string) => void;
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
   placeholder?: string;
@@ -24,7 +24,7 @@ interface AutocompleteProps {
 export function Autocomplete({
   items,
   isSearching = false,
-  setIsSearching,
+  setSearchTerm,
   selectedIds,
   onSelectionChange,
   placeholder = "Buscar...",
@@ -32,9 +32,9 @@ export function Autocomplete({
   showBadges = true,
   multiSelect = true,
 }: AutocompleteProps) {
-  const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  let searchCount = 0;
 
   const selectedItems = items.filter((item) => selectedIds.includes(item.id));
 
@@ -48,14 +48,6 @@ export function Autocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(()=> {
-    if (searchTerm !== "" && searchTerm.length > 2) {
-      setIsSearching(true);
-    } 
-  }, [searchTerm])
-
-
-
   const toggleSelection = (id: string) => {
     if (multiSelect) {
       const newSelection = selectedIds.includes(id)
@@ -65,9 +57,12 @@ export function Autocomplete({
     } else {
       onSelectionChange([id]);
       setIsOpen(false);
-      setSearchTerm("");
     }
   };
+
+  useEffect(() => {
+    console.log("items", items)
+  }, [items])
 
   const removeSelection = (id: string) => {
     onSelectionChange(selectedIds.filter((item) => item !== id));
@@ -76,7 +71,7 @@ export function Autocomplete({
   return (
     <div ref={wrapperRef} className="relative">
 
-      {isSearching && isOpen && items.length === 0 && (
+      {isSearching && isOpen && (
         <RefreshCw className="absolute top-2 right-2 w-4 h-4 animate-spin" />
       )}
 
@@ -84,9 +79,10 @@ export function Autocomplete({
       
       <Input
         placeholder={placeholder}
-        value={searchTerm}
+        // value={searchTerm}
         onChange={(e) => {
           setSearchTerm(e.target.value);
+          searchCount = 1;
           setIsOpen(true);
         }}
         onFocus={() => setIsOpen(true)}
@@ -124,6 +120,19 @@ export function Autocomplete({
           })}
         </div>
       )}
+      {isOpen && !isSearching && searchCount > 0 && items.length === 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          <div className="px-3 py-2 transition-colors">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">No se encontró ninguna coincidencia.</div>
+              </div>
+            </div>
+          </div>
+        </div>  
+      )
+
+      }
 
       {showBadges && selectedItems.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-2">

@@ -40,6 +40,7 @@ const VariantSchema = z.object({
   hasComponents: z
     .array(
       z.object({
+        name: z.string().optional(),
         productVariantId: z.coerce.number(),
         quantity: z.coerce.number().min(1),
       }),
@@ -47,9 +48,7 @@ const VariantSchema = z.object({
     .default([]),
 });
 
-const productService = new BaseService<Product>(
-  "product",
-);
+const productService = new BaseService<Product>("product");
 export type VariantFormValues = z.infer<typeof VariantSchema>;
 
 interface VariantFormProps {
@@ -68,10 +67,18 @@ const VariantForm = ({
   const [confirmCreatingMix, setConfirmCreatingMix] = useState(false);
   const [confirmRemoveExistingMix, setConfirmRemoveExistingMix] =
     useState(false);
+
+  // Autocomplete aplicado a productos
   const [isSearchingProduct, setIsSearchingProduct] = useState<boolean>(false);
-  const [foundProductList, setFoundProductList] = useState<Product[]>(
-    [],
-  );
+  const [searchTermProduct, setSearchTermProduct] = useState<string>("");
+  const [foundProductList, setFoundProductList] = useState<
+    {
+      id: string;
+      label: string;
+      subtitle?: string;
+    }[]
+  >([]);
+
   const {
     register,
     control,
@@ -82,12 +89,6 @@ const VariantForm = ({
   } = useForm<VariantFormValues>({
     defaultValues: {
       ...initialVariantFormState,
-      // packagingOptions: initialVariantFormState.packagingOptions || [
-      //   "",
-      //   "",
-      //   "",
-      // ],
-      // hasComponents: initialVariantFormState.hasComponents || [],
     },
     resolver: zodResolver(VariantSchema) as Resolver<VariantFormValues>,
     mode: "onChange",
@@ -137,29 +138,61 @@ const VariantForm = ({
   }, [isValid, isSubmitting, setVariantFormStatus]);
 
   useEffect(() => {
-    async function searchingVariantFunction(searchParams: { key: string; value: any }[]) {
-      return await productService.get({searchParams, paginate: true, amountPerPage: 5})
+    if (searchTermProduct !== "" && searchTermProduct.length > 2) {
+      setIsSearchingProduct(true);
+    } else {
+      setFoundProductList([]);
+    }
+  }, [searchTermProduct]);
+
+  useEffect(() => {
+    async function searchingVariantFunction(
+      searchParams: { key: string; value: any }[],
+    ) {
+      return await productService.get({
+        searchParams,
+        paginate: true,
+        amountPerPage: 5,
+        detalle: true,
+      });
     }
     if (isSearchingProduct) {
-      console.log(initialVariantFormState.id)
-      searchingVariantFunction(Number(initialVariantFormState.id))
-        .then((response) => {
-          setFoundProductList([response.response]);
-        })
-        .catch((err) => {
-          console.log(err);
-        })
-        .finally(() => {
-          setIsSearchingProduct(false);
-        });
+      setTimeout(() => {
+        searchingVariantFunction([{ key: "name", value: searchTermProduct }])
+          .then((response) => {
+            const filteredProducts = response.response.content.flatMap((product) =>
+              (product.variants || [])
+                .filter((variant) => variant?.id !== idVariant) // excluye la variante actual
+                .map((variant) => ({
+                  id: String(variant?.id ?? product.id ?? ""),
+                  label: variant?.name ?? "",
+                  subtitle: product.name ?? "",
+                })),
+            );
+
+            setFoundProductList(filteredProducts);
+          })
+          .catch((err) => {
+            console.error(err);
+          })
+          .finally(() => {
+            setIsSearchingProduct(false);
+          });
+      }, 300);
     } else {
-        setIsSearchingProduct(false);
+      setIsSearchingProduct(false);
     }
   }, [isSearchingProduct]);
 
   const onFormSubmit = (data: VariantFormValues) => {
     handleSave(data);
   };
+
+  useEffect(() => {
+    // if () {
+      
+    // }    
+  }, [])
 
   return (
     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
@@ -390,32 +423,32 @@ const VariantForm = ({
               <div>
                 <Label className="mb-2 block">Buscar producto por nombre</Label>
                 <Autocomplete
-                  items={
-                    foundProductList.map((p) => ({
-                      id: String(p.id || ""),
-                      label: p.name || "",
-                      subtitle: p.product ? p.variant.name : "",
-                    })) || []
-                  }
+                  items={foundProductList}
                   isSearching={isSearchingProduct}
-                  setIsSearching={setIsSearchingProduct}
+                  setSearchTerm={setSearchTermProduct}
                   selectedIds={[]}
                   onSelectionChange={(ids) => {
-                    // if (ids.length > 0) {
-                    //   const selectedVariant = [
-                    //     { id: 1, name: "Variante 1" },
-                    //     { id: 2, name: "Variante 2" },
-                    //   ].find((v) => v.id === Number(ids[0]));
-                    //   if (selectedVariant) {
-                    //     setValue("hasComponents",[
-                    //         ...hasComponents,
-                    //         {
-                    //           productVariantId: selectedVariant.id,
-                    //           quantity: 1,
-                    //         },
-                    //       ]);
-                    //   }
-                    // }
+                    console.log(ids);
+                    if (ids.length > 0) {
+                      const alreadySelected = hasComponents.find(
+                        (v) => v.productVariantId === Number(ids[0]),
+                      )
+                      if (alreadySelected) return;
+                      const selectedVariant = foundProductList.find(
+                        (v) => v.id === ids[0],
+                      );
+                      console.log(foundProductList, selectedVariant);
+                      if (selectedVariant) {
+                        setValue("hasComponents", [
+                          ...hasComponents,
+                          {
+                            name: selectedVariant.label,
+                            productVariantId: Number(selectedVariant.id),
+                            quantity: 1,
+                          },
+                        ]);
+                      }
+                    }
                   }}
                   placeholder="Buscar productos para agregar..."
                   showBadges={false}
@@ -429,35 +462,37 @@ const VariantForm = ({
                   {hasComponents.map((component: any, idx: number) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-2 bg-card p-2 rounded-lg border border-border"
+                      className="flex items-center justify-between gap-2 bg-card p-2 rounded-lg border border-border"
                     >
-                      <span className="text-sm flex-1">{component.name}</span>
-                      <Input
-                        type="number"
-                        placeholder="Cant."
-                        value={component.quantity}
-                        onChange={(e) => {
-                          const newComponents = [...hasComponents];
-                          newComponents[idx].quantity =
-                            parseInt(e.target.value) || 1;
-                          setValue("hasComponents", newComponents);
-                        }}
-                        className="w-20"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setValue(
-                            "hasComponents",
-                            hasComponents.filter(
-                              (_: any, i: number) => i !== idx,
-                            ),
-                          );
-                        }}
-                        className="text-destructive hover:bg-destructive/10 p-1 rounded"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      <span className="text-sm flex-1 ml-2">{component.name || component.componentProduct.name}</span>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          placeholder="Cant."
+                          value={component.quantity}
+                          onChange={(e) => {
+                            const newComponents = [...hasComponents];
+                            newComponents[idx].quantity =
+                              parseInt(e.target.value) || 1;
+                            setValue("hasComponents", newComponents);
+                          }}
+                          className="w-20"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setValue(
+                              "hasComponents",
+                              hasComponents.filter(
+                                (_: any, i: number) => i !== idx,
+                              ),
+                            );
+                          }}
+                          className="text-destructive hover:bg-destructive/10 p-1 rounded"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

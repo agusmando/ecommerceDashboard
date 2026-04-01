@@ -61,12 +61,14 @@ export default function ProductDetail() {
       active: boolean;
       mixVariantId: number;
       productVariantId: number;
+      componentProduct: {
+        name: string;
+      }
       quantity: number;
     }[],
     isMix: false,
   };
   const [variantFormStatus, setVariantFormStatus] = useState<boolean>(false);
-  const [isEditing, setIsEditing] = useState(false);
 
   // Variant form state
 
@@ -76,6 +78,7 @@ export default function ProductDetail() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [loadingModal, setLoadingModal] = useState<boolean>(false);
   const [product, setProduct] = useState<Product>();
   type variantFormData = {
     id?: number;
@@ -100,6 +103,9 @@ export default function ProductDetail() {
       active: boolean;
       mixVariantId: number;
       productVariantId: number;
+      componentProduct: {
+        name: string;
+      };
       quantity: number;
     }[];
     isMix: boolean;
@@ -177,6 +183,7 @@ export default function ProductDetail() {
       return (
         <Modal
           isOpen={true}
+          loadingModal
           onClose={() => setShowMixDependencies(null)}
           title={hasComp ? "Componentes del Mix" : "Mix al que pertenece"}
         >
@@ -207,43 +214,59 @@ export default function ProductDetail() {
     }
   };
 
-  const handleEditVariant = (productVariant: ProductVariant) => {
-    setIsEditing(true);
+  const handleEditVariant = async (productVariant: ProductVariant) => {
     // setCurrentId(productVariant.id);
+    setShowVariantModal(true); 
+    setLoadingModal(true)
+    const singleVariantRequest = await productVariantService.getOne(Number(productVariant.id));
+    const foundVariant = singleVariantRequest.response;
+    if (!foundVariant) {
+      return;
+    }
+    setLoadingModal(false)
     setDatosAEditar({
-      id: productVariant.id,
-      name: productVariant.name,
-      contentMeasure: productVariant.contentMeasure.toString(),
-      currentStock: productVariant.currentStock,
-      contentAmount: productVariant.contentAmount
-        ? productVariant.contentAmount
+      id: foundVariant.id,
+      name: foundVariant.name,
+      contentMeasure: foundVariant.contentMeasure.toString(),
+      currentStock: foundVariant.currentStock,
+      contentAmount: foundVariant.contentAmount
+        ? foundVariant.contentAmount
         : 0,
-      requestTime: productVariant.requestTime ? productVariant.requestTime : 0,
-      stockThreshold: productVariant.stockThreshold || 0,
-      roundingOption: productVariant.roundingOption || 10,
-      profitMargin: productVariant.profitMargin
-        ? productVariant.profitMargin * 100
+      requestTime: foundVariant.requestTime ? foundVariant.requestTime : 0,
+      stockThreshold: foundVariant.stockThreshold || 0,
+      roundingOption: foundVariant.roundingOption || 10,
+      profitMargin: foundVariant.profitMargin
+        ? foundVariant.profitMargin * 100
         : 0,
-      price: productVariant.price || 0,
-      images: productVariant.images || [],
-      packagingOptions: productVariant.packagingOptions
-        ? productVariant.packagingOptions.map((p) => p.toString())
+      price: foundVariant.price || 0,
+      images: foundVariant.images || [],
+      packagingOptions: foundVariant.packagingOptions
+        ? foundVariant.packagingOptions.map((p) => p.toString())
         : ["", "", ""],
-      isComponentOf: productVariant.isComponentOf
-        ? productVariant.isComponentOf.map((c) => ({
+      isComponentOf: foundVariant.isComponentOf
+        ? foundVariant.isComponentOf.map((c) => ({
             ...c,
             active: (c as any).active ?? true,
           }))
         : [],
-      hasComponents: productVariant.hasComponents
-        ? productVariant.hasComponents.map((c) => ({
-            ...c,
+      hasComponents: foundVariant.hasComponents
+        ? foundVariant.hasComponents.map((c) => ({
             active: (c as any).active ?? true,
+            mixVariantId: (c as any).mixVariantId ?? 0,
+            productVariantId: (c as any).productVariantId ?? 0,
+            componentProduct: {
+              // prefer existing componentProduct.name, fallback to legacy name field or empty string
+              name:
+                (c as any).componentProduct?.name ??
+                (c as any).name ??
+                "",
+            },
+            quantity: (c as any).quantity ?? 0,
           }))
         : [],
-      isMix: productVariant.hasComponents?.length > 0,
+      isMix: foundVariant.hasComponents?.length > 0,
     });
-    setShowVariantModal(true);
+
   };
 
   const handleCloseVariant = () => {
@@ -271,7 +294,6 @@ export default function ProductDetail() {
     // };
     // // cast via unknown to avoid overly strict structural mismatch errors
     // productVariantService.create(payload as unknown as ProductVariant);
-    setIsEditing(false);
   };
 
   useEffect(() => {
@@ -563,7 +585,7 @@ export default function ProductDetail() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEditVariant(variant)}
-                                  tooltip="Editar variante"
+                                tooltip="Editar variante"
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -685,6 +707,7 @@ export default function ProductDetail() {
             {/* Edit Modal */}
             <Modal
               isOpen={showEditModal}
+              loadingModal={loadingModal}
               onClose={() => setShowEditModal(false)}
               title="Editar Producto"
               footer={
@@ -700,13 +723,14 @@ export default function ProductDetail() {
                   </Button>
                 </>
               }
-            >
+              >
               <ProductEditForm product={product} />
             </Modal>
 
             {/* Add Variant Modal - Complete with all new fields */}
             <Modal
               isOpen={showVariantModal}
+              loadingModal={ loadingModal }
               onClose={() => {
                 setShowVariantModal(false);
                 setDatosAEditar(initialVariantFormState);
