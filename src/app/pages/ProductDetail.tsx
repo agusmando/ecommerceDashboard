@@ -39,6 +39,7 @@ export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const initialVariantFormState = {
+    id: 0,
     name: "",
     price: 0,
     currentStock: 0,
@@ -117,8 +118,10 @@ export default function ProductDetail() {
   const stockMovements = mockStockMovements.filter(
     (m) => m.productId === product?.id,
   );
-  const relatedOffers = mockOffers.filter((o) =>
-    product?.variants.some((v) => o.variantId?.includes(v.id as any)),
+  const relatedOffers = mockOffers.filter((o) => {
+      if (!product?.variants) return false
+      return product?.variants.some((v) => o.variantId?.includes(v.id as any))
+    }
   );
 
   const tabs = [
@@ -159,6 +162,7 @@ export default function ProductDetail() {
   };
 
   const showDependenciesModal = (id: number) => {
+    if (!product?.variants) return;
     const variant = product?.variants.find((v) => v.id === id);
 
     if (
@@ -207,6 +211,7 @@ export default function ProductDetail() {
     setIsEditing(true);
     // setCurrentId(productVariant.id);
     setDatosAEditar({
+      id: productVariant.id,
       name: productVariant.name,
       contentMeasure: productVariant.contentMeasure.toString(),
       currentStock: productVariant.currentStock,
@@ -433,7 +438,7 @@ export default function ProductDetail() {
                           Cantidad de Variantes
                         </dt>
                         <dd className="text-foreground">
-                          {product.variants.length}
+                          {product?.variants && product.variants.length}
                         </dd>
                       </div>
                       <div>
@@ -441,7 +446,7 @@ export default function ProductDetail() {
                           Stock Total
                         </dt>
                         <dd className="text-foreground">
-                          {product.variants.reduce(
+                          {product?.variants && product.variants.reduce(
                             (sum, v) => sum + v.currentStock,
                             0,
                           )}{" "}
@@ -482,7 +487,7 @@ export default function ProductDetail() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {product.variants.map((variant) => (
+                      {product.variants && product.variants.map((variant) => (
                         <TableRow key={variant.id}>
                           <TableCell className="text-muted-foreground">
                             {variant.id}
@@ -590,7 +595,7 @@ export default function ProductDetail() {
                     </TableHeader>
                     <TableBody>
                       {stockMovements.map((movement) => {
-                        const variant = product.variants.find(
+                        const variant = product.variants && product.variants.find(
                           (v) => v.id === movement.variantId,
                         );
                         return (

@@ -12,7 +12,8 @@ import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { toast } from "sonner";
-import { ProductVariant } from "../types";
+import { Product, ProductVariant } from "../types";
+import BaseService from "../service/baseService";
 
 const UNITS = [
   { value: "U", label: "Unidad (u)" },
@@ -46,13 +47,16 @@ const VariantSchema = z.object({
     .default([]),
 });
 
+const productService = new BaseService<Product>(
+  "product",
+);
 export type VariantFormValues = z.infer<typeof VariantSchema>;
 
 interface VariantFormProps {
   setVariantFormStatus: (isValid: boolean) => void;
   initialVariantFormState: Partial<VariantFormValues>;
   handleSave: (data: VariantFormValues) => void;
- onValuesChange?: (values: VariantFormValues) => void;
+  onValuesChange?: (values: VariantFormValues) => void;
 }
 
 const VariantForm = ({
@@ -62,9 +66,12 @@ const VariantForm = ({
   onValuesChange,
 }: VariantFormProps) => {
   const [confirmCreatingMix, setConfirmCreatingMix] = useState(false);
-  const [confirmRemoveExistingMix, setConfirmRemoveExistingMix] = useState(false);
-  const [variantSearchResult, setVariantSearchResult] = useState<ProductVariant[]>([]);
-  const [SearchingVariant, setIsSearchingVariant] = useState<ProductVariant[]>([]);
+  const [confirmRemoveExistingMix, setConfirmRemoveExistingMix] =
+    useState(false);
+  const [isSearchingProduct, setIsSearchingProduct] = useState<boolean>(false);
+  const [foundProductList, setFoundProductList] = useState<Product[]>(
+    [],
+  );
   const {
     register,
     control,
@@ -106,14 +113,13 @@ const VariantForm = ({
     }
   }, [allValues, onValuesChange]);
 
-  
   // Observamos cambios en valores específicos
   const contentMeasure = watch("contentMeasure");
   const isMix = watch("isMix");
   const images = watch("images") || [];
   const hasComponents = watch("hasComponents") || [];
-  const idVariant = watch("id")
-  
+  const idVariant = watch("id");
+
   useEffect(() => {
     if (contentMeasure != "KG" && contentMeasure != "G") {
       setValue("packagingOptions", undefined);
@@ -122,18 +128,34 @@ const VariantForm = ({
         setValue("packagingOptions", ["", "", ""]);
       }
     }
-  }, [contentMeasure])
+  }, [contentMeasure]);
 
-// Asegúrate de incluir todas las dependencias necesarias en el useEffect
-useEffect(() => {
-  // Notificamos al padre si el formulario es válido y NO se está enviando ya.
-  setVariantFormStatus(isValid && !isSubmitting);
-  console.log("isValid", isValid, "isSubmitting", isSubmitting, "errors", errors);
-}, [isValid, isSubmitting, setVariantFormStatus]);
- 
+  // Asegúrate de incluir todas las dependencias necesarias en el useEffect
   useEffect(() => {
-    console.log("status", errors)
-  }, []);
+    // Notificamos al padre si el formulario es válido y NO se está enviando ya.
+    setVariantFormStatus(isValid && !isSubmitting);
+  }, [isValid, isSubmitting, setVariantFormStatus]);
+
+  useEffect(() => {
+    async function searchingVariantFunction(searchParams: { key: string; value: any }[]) {
+      return await productService.get({searchParams, paginate: true, amountPerPage: 5})
+    }
+    if (isSearchingProduct) {
+      console.log(initialVariantFormState.id)
+      searchingVariantFunction(Number(initialVariantFormState.id))
+        .then((response) => {
+          setFoundProductList([response.response]);
+        })
+        .catch((err) => {
+          console.log(err);
+        })
+        .finally(() => {
+          setIsSearchingProduct(false);
+        });
+    } else {
+        setIsSearchingProduct(false);
+    }
+  }, [isSearchingProduct]);
 
   const onFormSubmit = (data: VariantFormValues) => {
     handleSave(data);
@@ -141,9 +163,13 @@ useEffect(() => {
 
   return (
     <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-      <form id="variant-form" onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 ">
+      <form
+        id="variant-form"
+        onSubmit={handleSubmit(onFormSubmit)}
+        className="space-y-4 "
+      >
         <div className="grid grid-cols-2 gap-4">
-          <Input  
+          <Input
             label="Nombre Variante"
             placeholder="ej: Estándar, 500g, Pack x3"
             {...register("name")}
@@ -171,7 +197,7 @@ useEffect(() => {
             {...register("price")}
             placeholder="0.00"
             error={errors.price?.message}
-            />
+          />
           <Input
             label="Margen de Ganancia (%)"
             disabled={isMix}
@@ -263,7 +289,9 @@ useEffect(() => {
             name="images"
             render={({ field }) => (
               <>
-                <Label className="mb-2 block text-base">Imágenes de variante</Label>
+                <Label className="mb-2 block text-base">
+                  Imágenes de variante
+                </Label>
                 <label htmlFor="add-variant-images">
                   <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
                     <Upload className="w-8 h-8 mb-2" />
@@ -340,15 +368,17 @@ useEffect(() => {
                 <Switch
                   checked={field.value}
                   onCheckedChange={(checked) => {
-                    if (checked ) {
+                    if (checked) {
                       return setConfirmCreatingMix(true);
                     } else {
-                      if (allValues.hasComponents && allValues.hasComponents.length > 0) {
+                      if (
+                        allValues.hasComponents &&
+                        allValues.hasComponents.length > 0
+                      ) {
                         return setConfirmRemoveExistingMix(true);
                       }
                     }
                     field.onChange(checked);
-
                   }}
                 />
               )}
@@ -358,40 +388,19 @@ useEffect(() => {
           {isMix && (
             <div className="mt-4 space-y-3">
               <div>
-                <Label className="mb-2 block">Buscar variante por nombre</Label>
+                <Label className="mb-2 block">Buscar producto por nombre</Label>
                 <Autocomplete
-                  // items={
-                  //   [
-                  //     {
-                  //       id: "1",
-                  //       name: "Variante 1",
-                  //       product: { id: "1", name: "Producto 1" },
-                  //     },
-                  //     {
-                  //       id: "2",
-                  //       name: "Variante 2",
-                  //       product: { id: "2", name: "Producto 2" },
-                  //     },
-                  //   ]
-                  //     .map((v) => ({
-                  //       id: v.id,
-                  //       label: v.name,
-                  //       subtitle: v.product.name,
-                  //     }))
-                      // .filter(
-                      //   (v) =>
-                      //     hasComponents.some(
-                      //       (c) => c.productVariantId === v.id,
-                      //     ),
-                      // ) as any
-                  // }
-                  items={variantSearchResult.map((v) => ({
-                    id: v.id,
-                    label: v.name,
-                    subtitle: v.product.name, 
-                  })) || [] }
+                  items={
+                    foundProductList.map((p) => ({
+                      id: String(p.id || ""),
+                      label: p.name || "",
+                      subtitle: p.product ? p.variant.name : "",
+                    })) || []
+                  }
+                  isSearching={isSearchingProduct}
+                  setIsSearching={setIsSearchingProduct}
+                  selectedIds={[]}
                   onSelectionChange={(ids) => {
-
                     // if (ids.length > 0) {
                     //   const selectedVariant = [
                     //     { id: 1, name: "Variante 1" },
@@ -408,23 +417,21 @@ useEffect(() => {
                     //   }
                     // }
                   }}
-                  placeholder="Buscar variantes para agregar..."
+                  placeholder="Buscar productos para agregar..."
                   showBadges={false}
                   multiSelect={false}
                 />
               </div>
 
-              { hasComponents.length > 0 ? (
+              {hasComponents.length > 0 ? (
                 <div className="space-y-2">
-                  <Label className="block">Variantes seleccionadas</Label>
-                  { hasComponents.map((component: any, idx: number) => (
+                  <Label className="block">Productos seleccionados</Label>
+                  {hasComponents.map((component: any, idx: number) => (
                     <div
                       key={idx}
                       className="flex items-center gap-2 bg-card p-2 rounded-lg border border-border"
                     >
-                      <span className="text-sm flex-1">
-                        {component.name}
-                      </span> 
+                      <span className="text-sm flex-1">{component.name}</span>
                       <Input
                         type="number"
                         placeholder="Cant."
@@ -433,16 +440,19 @@ useEffect(() => {
                           const newComponents = [...hasComponents];
                           newComponents[idx].quantity =
                             parseInt(e.target.value) || 1;
-                            setValue("hasComponents", newComponents);
-                          }}
-                          className="w-20"
-                        />
+                          setValue("hasComponents", newComponents);
+                        }}
+                        className="w-20"
+                      />
                       <button
                         type="button"
                         onClick={() => {
-                          setValue("hasComponents", hasComponents.filter(
+                          setValue(
+                            "hasComponents",
+                            hasComponents.filter(
                               (_: any, i: number) => i !== idx,
-                            ));
+                            ),
+                          );
                         }}
                         className="text-destructive hover:bg-destructive/10 p-1 rounded"
                       >
@@ -454,7 +464,6 @@ useEffect(() => {
               ) : null}
             </div>
           )}
-          
         </div>
       </form>
       {/* Confirm creating mix Dialog */}
@@ -466,7 +475,7 @@ useEffect(() => {
           setValue("hasComponents", []);
           setValue("price", 0);
           setValue("profitMargin", 0);
-          
+
           setConfirmCreatingMix(false);
         }}
         title="Crear mix"
@@ -474,7 +483,7 @@ useEffect(() => {
         confirmText="Aceptar"
         cancelText="Cancelar"
       />
-     
+
       {/* Confirm removing existing mix */}
       <ConfirmDialog
         isOpen={confirmRemoveExistingMix}

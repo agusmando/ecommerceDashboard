@@ -65,7 +65,9 @@ export interface ProductVariant {
     name?: string; // For display purposes
     quantity: number;
   }[] | [];
-  finalPrice?: number
+  finalPrice?: number;
+  offers?: Offer[];
+  product?: Product;
 }
 
 export interface Product {
@@ -79,7 +81,7 @@ export interface Product {
   Tags?: Tag[];
   measure?: string; // Base unit for the product
   active: boolean;
-  variants: ProductVariant[];
+  variants?: ProductVariant[];
   images?: string[];
 }
 

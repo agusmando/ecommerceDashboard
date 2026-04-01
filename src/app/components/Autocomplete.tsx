@@ -12,6 +12,7 @@ interface AutocompleteItem {
 interface AutocompleteProps {
   items: AutocompleteItem[];
   isSearching: boolean;
+  setIsSearching: (boolean: boolean) => void;
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
   placeholder?: string;
@@ -23,6 +24,7 @@ interface AutocompleteProps {
 export function Autocomplete({
   items,
   isSearching = false,
+  setIsSearching,
   selectedIds,
   onSelectionChange,
   placeholder = "Buscar...",
@@ -33,12 +35,6 @@ export function Autocomplete({
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-
-  const foundItems = items.filter(
-    (item) =>
-      item.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.subtitle && item.subtitle.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
 
   const selectedItems = items.filter((item) => selectedIds.includes(item.id));
 
@@ -51,6 +47,14 @@ export function Autocomplete({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(()=> {
+    if (searchTerm !== "" && searchTerm.length > 2) {
+      setIsSearching(true);
+    } 
+  }, [searchTerm])
+
+
 
   const toggleSelection = (id: string) => {
     if (multiSelect) {
@@ -72,7 +76,7 @@ export function Autocomplete({
   return (
     <div ref={wrapperRef} className="relative">
 
-      {isSearching && isOpen && foundItems.length === 0 && (
+      {isSearching && isOpen && items.length === 0 && (
         <RefreshCw className="absolute top-2 right-2 w-4 h-4 animate-spin" />
       )}
 
@@ -88,9 +92,9 @@ export function Autocomplete({
         onFocus={() => setIsOpen(true)}
       />
 
-      {isOpen && foundItems.length > 0 && (
+      {isOpen && items.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {foundItems.map((item) => {
+          {items.map((item) => {
             const isSelected = selectedIds.includes(item.id);
             return (
               <div
@@ -136,7 +140,7 @@ export function Autocomplete({
           ))}
         </div>
       )}
-      {/* {foundItems.length === 0 && <p className="text-muted-foreground text-sm mt-2">No se encontró ninguna coincidencia.</p>} */}
+      {/* {items.length === 0 && <p className="text-muted-foreground text-sm mt-2">No se encontró ninguna coincidencia.</p>} */}
     </div>
   );
 }
