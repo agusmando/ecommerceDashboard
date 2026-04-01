@@ -276,25 +276,41 @@ export default function ProductDetail() {
 
   const handleSubmitVariant = (data: VariantFormValues) => {
     console.log("Creating variant:",  data );
-    // const payload = {
-    //   ...data,
-    //   productId: Number(id),
-    //   // Ensure each component includes mixVariantId (default to 0 if missing)
-    //   profitMargin: data.profitMargin / 100,
-    //   packagingOptions: (data.packagingOptions ?? [])[0] == "" ? [] : data.packagingOptions ?? [],
-    //   hasComponents: (data.hasComponents ?? []).map((c) => ({
-    //     mixVariantId: (c as any).mixVariantId ?? 0,
-    //     productVariantId: c.productVariantId,
-    //     // preserve optional name if present
-    //     ...((c as any).name ? { name: (c as any).name } : {}),
-    //     quantity: c.quantity,
-    //   })),
-    //   stockThreshold: data.stockThreshold ?? 0,
-    //   isComponentOf: [],
-    // };
+    const hasComponentPayload = hasComponentSorting(initialVariantFormState.hasComponents, data.hasComponents)
+    const payload = {
+      ...data,
+      productId: Number(id),
+      // Ensure each component includes mixVariantId (default to 0 if missing)
+      profitMargin: data.profitMargin / 100,
+      packagingOptions: (data.packagingOptions ?? [])[0] == "" ? [] : data.packagingOptions ?? [],
+      hasComponents: (data.hasComponents ?? []).map((c) => ({
+        mixVariantId: (c as any).mixVariantId ?? 0,
+        productVariantId: c.productVariantId,
+        // preserve optional name if present
+        ...((c as any).name ? { name: (c as any).name } : {}),
+        quantity: c.quantity,
+      })),
+      stockThreshold: data.stockThreshold ?? 0,
+      isComponentOf: [],
+    };
+
     // // cast via unknown to avoid overly strict structural mismatch errors
     // productVariantService.create(payload as unknown as ProductVariant);
   };
+
+  const hasComponentSorting = (oldVariant: {
+    mixVariantId: number;
+    productVariantId: number;
+    name?: string; // For display purposes
+    quantity: number;
+  }[] | [], newVariant: {
+    mixVariantId: number;
+    productVariantId: number;
+    name?: string; // For display purposes
+    quantity: number;
+  }[] | []) => {
+    console.log(oldVariant, newVariant)
+  }
 
   useEffect(() => {
     const fetchData = async () => {

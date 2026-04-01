@@ -1,5 +1,5 @@
 import { ReactNode, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { RefreshCw, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './Button';
 
@@ -35,15 +35,7 @@ export function Modal({ isOpen, loadingModal , onClose, title, children, size = 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {loadingModal && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white"></div>
-        </div>
-      )}
-
-      {!loadingModal && (
-        <>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">  
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/50"
@@ -68,19 +60,27 @@ export function Modal({ isOpen, loadingModal , onClose, title, children, size = 
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {children}
-            </div>
-
-            {/* Footer */}
-            {footer && (
-              <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
-                {footer}
+            {loadingModal && (
+              <div className="flex items-center justify-center p-12">
+                <RefreshCw className="animate-spin h-10 w-10" />
+                {/* <div className=" rounded-full h-16 w-16 border-t-2 border-b-2 border-white"></div> */}
               </div>
             )}
+            {!loadingModal && (
+              <>
+                <div className="flex-1 overflow-y-auto p-6">
+                  {children}
+                </div>
+
+                {/* Footer */}
+                {footer && (
+                  <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
+                    {footer}
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        </>
-      )}
     </div>
   );
 }
