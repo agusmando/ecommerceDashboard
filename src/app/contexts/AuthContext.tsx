@@ -1,78 +1,59 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import Session from "supertokens-auth-react/recipe/session";
+import EmailPassword from "supertokens-auth-react/recipe/emailpassword";
+import ThirdParty from "supertokens-auth-react/recipe/thirdparty";
 import type { User } from "../types";
-import { mockUsers } from "../data/mockData";
-import axios from "axios";
+
 interface AuthContextType {
   user: User | null;
-  isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  loginWithGoogle: () => Promise<boolean>;
-  logout: () => void;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<any>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // Mock authentication - in real app, this would call an API
-    const foundUser = await axios.post(
-      "https://canelaenramaback.onrender.com/api/auth/signin",
-      {
-        formFields: [
-          { id: "email", value: email },
-          { id: "password", value: password },
-        ],
-      },
-    );
-    // = mockUsers.find(u => u.email === email);
-    if (foundUser && foundUser.data.status == "OK") {
-      const userData = foundUser.data.user;
-      setUser({
-        id: userData.id,
-        name: userData.name,
-        email: userData.emails[0],
-        role: userData.role,
-        // avatarUrl: userData.avatarUrl,
-        // createdAt: userData.createdAt,
-        // updatedAt: userData.updatedAt,
-      });
-      return true;
+  // Sincronizar el estado del usuario al cargar la app
+  useEffect(() => {
+    async function getUserInfo() {
+      if (await Session.doesSessionExist()) {
+        // Aquí podrías llamar a tu backend para obtener el perfil completo usando el userId
+        // const userId = await Session.getUserId();
+        // const data = await fetchUserData(userId); 
+        // setUser(data);
+      }
+      setLoading(false);
     }
-    return false;
+    getUserInfo();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    // SuperTokens maneja la llamada al backend por ti
+    const response = await EmailPassword.signIn({
+      formFields: [
+        { id: "email", value: email },
+        { id: "password", value: password }
+      ]
+    });
+    if (response.status === "OK") {
+      setUser(response.user as any); // O los datos que devuelva tu receta
+    }
+    return response;
   };
 
-  const loginWithGoogle = async (): Promise<boolean> => {
-    // Mock Google OAuth - in real app, this would use OAuth flow
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setUser(mockUsers[0]);
-    return true;
-  };
-
-  const logout = () => {
+  const logout = async () => {
+    await Session.signOut();
     setUser(null);
+    window.location.assign("/login");
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        login,
-        loginWithGoogle,
-        logout,
-      }}
-    >
-      {children}
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
 }

@@ -230,9 +230,9 @@ export default function Products() {
   };
 
   const getTotalStock = (product: Product) => {
-    let totalStock = product.variants.reduce((sum, v) => sum + v.currentStock, 0);
-    const hasLowStock = product.variants.some(v => v.currentStock < v.stockThreshold);
-    const isOutOfStock = product.variants.some(v => v.currentStock === 0);
+    let totalStock = (product.variants || []).reduce((sum, v) => sum + v.currentStock, 0);
+    const hasLowStock = (product.variants || []).some(v => v.currentStock < v.stockThreshold);
+    const isOutOfStock = (product.variants || []).some(v => v.currentStock === 0);
     if (product.measure == "KG") totalStock = totalStock / 1000 
     console.log(totalStock, hasLowStock, isOutOfStock)
     return { totalStock, hasLowStock, isOutOfStock };
@@ -261,7 +261,7 @@ export default function Products() {
       label: "Variantes",
       align: "center",
       sortable: true,
-      render: (product) => product.variants.length,
+      render: (product) => (product.variants || []).length,
     },
     {
       key: "stock",
@@ -424,6 +424,7 @@ export default function Products() {
           onClose={handleCancelBulkStock}
           title="Carga Masiva de Stock"
           size="lg"
+          loadingModal={false}
           footer={
             <>
               <Button variant="ghost" onClick={handleCancelBulkStock}>
@@ -469,6 +470,7 @@ export default function Products() {
         {/* Create/Edit Modal */}
         <Modal
           isOpen={isModalOpen}
+          loadingModal={false}
           onClose={() => setIsModalOpen(false)}
           title={isEditing ? "Editar Producto" : "Crear Nuevo Producto"}
           size="lg"
@@ -889,7 +891,7 @@ export default function Products() {
                         <Autocomplete
                           items={mockProducts
                             .flatMap((p) =>
-                              p.variants.map((v) => ({
+                              (p.variants || []).map((v) => ({
                                 id: v.id,
                                 label: v.name,
                                 subtitle: p.name,
@@ -906,7 +908,7 @@ export default function Products() {
                             if (ids.length > 0) {
                               const selectedVariant = mockProducts
                                 .flatMap((p) =>
-                                  p.variants.map((v) => ({
+                                  (p.variants || []).map((v) => ({
                                     id: v.id,
                                     label: v.name,
                                     subtitle: p.name,

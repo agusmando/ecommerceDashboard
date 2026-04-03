@@ -17,6 +17,7 @@ import Categories from './pages/Categories';
 import Tags from './pages/Tags';
 import Statistics from './pages/Statistics';
 import Administration from './pages/Administration';
+import GoogleCallback from './pages/GoogleCallback';
 
 export const router = createBrowserRouter([
   {
@@ -80,4 +81,8 @@ export const router = createBrowserRouter([
     path: '/dashboard/administration',
     Component: Administration,
   },
+  {
+    path: "/auth/callback/google",
+    Component: GoogleCallback 
+  }
 ]);

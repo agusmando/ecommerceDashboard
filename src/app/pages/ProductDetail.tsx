@@ -63,7 +63,7 @@ export default function ProductDetail() {
       productVariantId: number;
       componentProduct: {
         name: string;
-      }
+      };
       quantity: number;
     }[],
     isMix: false,
@@ -125,10 +125,9 @@ export default function ProductDetail() {
     (m) => m.productId === product?.id,
   );
   const relatedOffers = mockOffers.filter((o) => {
-      if (!product?.variants) return false
-      return product?.variants.some((v) => o.variantId?.includes(v.id as any))
-    }
-  );
+    if (!product?.variants) return false;
+    return product?.variants.some((v) => o.variantId?.includes(v.id as any));
+  });
 
   const tabs = [
     { id: "variants", label: "Variantes" },
@@ -216,14 +215,16 @@ export default function ProductDetail() {
 
   const handleEditVariant = async (productVariant: ProductVariant) => {
     // setCurrentId(productVariant.id);
-    setShowVariantModal(true); 
-    setLoadingModal(true)
-    const singleVariantRequest = await productVariantService.getOne(Number(productVariant.id));
+    setShowVariantModal(true);
+    setLoadingModal(true);
+    const singleVariantRequest = await productVariantService.getOne(
+      Number(productVariant.id),
+    );
     const foundVariant = singleVariantRequest.response;
     if (!foundVariant) {
       return;
     }
-    setLoadingModal(false)
+    setLoadingModal(false);
     setDatosAEditar({
       id: foundVariant.id,
       name: foundVariant.name,
@@ -256,17 +257,13 @@ export default function ProductDetail() {
             productVariantId: (c as any).productVariantId ?? 0,
             componentProduct: {
               // prefer existing componentProduct.name, fallback to legacy name field or empty string
-              name:
-                (c as any).componentProduct?.name ??
-                (c as any).name ??
-                "",
+              name: (c as any).componentProduct?.name ?? (c as any).name ?? "",
             },
             quantity: (c as any).quantity ?? 0,
           }))
         : [],
       isMix: foundVariant.hasComponents?.length > 0,
     });
-
   };
 
   const handleCloseVariant = () => {
@@ -275,14 +272,23 @@ export default function ProductDetail() {
   };
 
   const handleSubmitVariant = (data: VariantFormValues) => {
-    console.log("Creating variant:",  data );
-    const hasComponentPayload = hasComponentSorting(initialVariantFormState.hasComponents, data.hasComponents)
+    console.log("Creating variant:", data);
+    if (data.hasComponents || initialVariantFormState.hasComponents) {
+      const hasComponentPayload = hasComponentSorting(
+        datosAEditar.hasComponents,
+        data.hasComponents,
+      );
+      console.log(hasComponentPayload);
+    }
     const payload = {
       ...data,
       productId: Number(id),
       // Ensure each component includes mixVariantId (default to 0 if missing)
       profitMargin: data.profitMargin / 100,
-      packagingOptions: (data.packagingOptions ?? [])[0] == "" ? [] : data.packagingOptions ?? [],
+      packagingOptions:
+        (data.packagingOptions ?? [])[0] == ""
+          ? []
+          : (data.packagingOptions ?? []),
       hasComponents: (data.hasComponents ?? []).map((c) => ({
         mixVariantId: (c as any).mixVariantId ?? 0,
         productVariantId: c.productVariantId,
@@ -298,19 +304,59 @@ export default function ProductDetail() {
     // productVariantService.create(payload as unknown as ProductVariant);
   };
 
-  const hasComponentSorting = (oldVariant: {
-    mixVariantId: number;
-    productVariantId: number;
-    name?: string; // For display purposes
-    quantity: number;
-  }[] | [], newVariant: {
-    mixVariantId: number;
-    productVariantId: number;
-    name?: string; // For display purposes
-    quantity: number;
-  }[] | []) => {
-    console.log(oldVariant, newVariant)
-  }
+  const hasComponentSorting = (
+    oldVariants:
+      | {
+          mixVariantId: number;
+          productVariantId: number;
+          name?: string; // For display purposes
+          quantity: number;
+        }[]
+      | [],
+    newVariants:
+      | {
+          // mixVariantId: number;
+          productVariantId: number;
+          name?: string; // For display purposes
+          quantity: number;
+        }[]
+      | [],
+  ) => {
+    const addComponents: { productVariantId: number; quantity: number }[] = [];
+    const editComponents: { productVariantId: number; quantity: number }[] = [];
+    const removeComponents: { productVariantId: number }[] = [];
+
+    console.log(oldVariants, newVariants);
+    if (newVariants.length > 0) {
+      newVariants.forEach((newVariant => {
+        const editedVariant = oldVariants.findIndex(c => c.productVariantId === newVariant.productVariantId);
+        if (editedVariant >= 0 && oldVariants[editedVariant].quantity !== newVariant.quantity) {
+          editComponents.push({
+           quantity: newVariant.quantity,
+           productVariantId: newVariant.productVariantId 
+          })
+        } 
+        else if (editedVariant < 0) {
+          addComponents.push({
+            quantity: newVariant.quantity,
+            productVariantId: newVariant.productVariantId 
+          })
+        }
+      }))
+    }
+    if (oldVariants.length > 0) {
+      oldVariants.forEach((oldVariant) => {
+        const removedVariant = newVariants.findIndex(c => c.productVariantId === oldVariant.productVariantId);
+        if (removedVariant < 0) {
+          removeComponents.push({
+            productVariantId: oldVariant.productVariantId,
+          })
+        }
+      })
+    }
+
+    return {addComponents, removeComponents, editComponents};
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -484,10 +530,11 @@ export default function ProductDetail() {
                           Stock Total
                         </dt>
                         <dd className="text-foreground">
-                          {product?.variants && product.variants.reduce(
-                            (sum, v) => sum + v.currentStock,
-                            0,
-                          )}{" "}
+                          {product?.variants &&
+                            product.variants.reduce(
+                              (sum, v) => sum + v.currentStock,
+                              0,
+                            )}{" "}
                           unidades
                         </dd>
                       </div>
@@ -525,90 +572,93 @@ export default function ProductDetail() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {product.variants && product.variants.map((variant) => (
-                        <TableRow key={variant.id}>
-                          <TableCell className="text-muted-foreground">
-                            {variant.id}
-                          </TableCell>
-                          <TableCell>{variant.name}</TableCell>
-                          <TableCell>
-                            {variant.hasComponents.length > 0
-                              ? "-"
-                              : variant.price
-                                ? formatCurrency(variant.price)
+                      {product.variants &&
+                        product.variants.map((variant) => (
+                          <TableRow key={variant.id}>
+                            <TableCell className="text-muted-foreground">
+                              {variant.id}
+                            </TableCell>
+                            <TableCell>{variant.name}</TableCell>
+                            <TableCell>
+                              {variant.hasComponents.length > 0
+                                ? "-"
+                                : variant.price
+                                  ? formatCurrency(variant.price)
+                                  : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {variant.hasComponents.length > 0
+                                ? "-"
+                                : Number(variant.profitMargin) * 100 + "%"}
+                            </TableCell>
+                            <TableCell>
+                              {variant.hasComponents.length > 0
+                                ? variant.price
+                                  ? formatCurrency(variant.price)
+                                  : "-"
+                                : variant.finalPrice
+                                  ? formatCurrency(variant.finalPrice)
+                                  : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  variant.currentStock == 0
+                                    ? "danger"
+                                    : variant.currentStock <=
+                                        variant.stockThreshold
+                                      ? "warning"
+                                      : "success"
+                                }
+                              >
+                                {variant.contentMeasure == "KG"
+                                  ? variant.currentStock / 1000
+                                  : variant.currentStock}{" "}
+                                {variant.contentMeasure}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {getVariantTypeBadge(variant)}
+                            </TableCell>
+                            <TableCell>
+                              {variant.contentAmount
+                                ? `${variant.contentAmount} ${variant.contentMeasure}`
                                 : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {variant.hasComponents.length > 0
-                              ? "-"
-                              : Number(variant.profitMargin) * 100 + "%"}
-                          </TableCell>
-                          <TableCell>
-                            {variant.hasComponents.length > 0
-                              ? variant.price
-                                ? formatCurrency(variant.price)
-                                : "-"
-                              : variant.finalPrice
-                                ? formatCurrency(variant.finalPrice)
-                                : "-"}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                variant.currentStock == 0
-                                  ? "danger"
-                                  : variant.currentStock <=
-                                      variant.stockThreshold
-                                    ? "warning"
-                                    : "success"
-                              }
-                            >
-                              {variant.contentMeasure == "KG"
-                                ? variant.currentStock / 1000
-                                : variant.currentStock}{" "}
-                              {variant.contentMeasure}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{getVariantTypeBadge(variant)}</TableCell>
-                          <TableCell>
-                            {variant.contentAmount
-                              ? `${variant.contentAmount} ${variant.contentMeasure}`
-                              : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {getStatusBadge(
-                              variant.active != undefined ? true : false,
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              {(variant.hasComponents.length > 0 ||
-                                variant.isComponentOf.length > 0) && (
+                            </TableCell>
+                            <TableCell>
+                              {getStatusBadge(
+                                variant.active != undefined ? true : false,
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                {(variant.hasComponents.length > 0 ||
+                                  variant.isComponentOf.length > 0) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      setShowMixDependencies(
+                                        variant.id ? variant.id.toString() : "",
+                                      )
+                                    }
+                                    tooltip="Ver componentes del mix"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                )}
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() =>
-                                    setShowMixDependencies(
-                                      variant.id ? variant.id.toString() : "",
-                                    )
-                                  }
-                                  tooltip="Ver componentes del mix"
+                                  onClick={() => handleEditVariant(variant)}
+                                  tooltip="Editar variante"
                                 >
-                                  <Eye className="w-4 h-4" />
+                                  <Edit className="w-4 h-4" />
                                 </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditVariant(variant)}
-                                tooltip="Editar variante"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -633,9 +683,11 @@ export default function ProductDetail() {
                     </TableHeader>
                     <TableBody>
                       {stockMovements.map((movement) => {
-                        const variant = product.variants && product.variants.find(
-                          (v) => v.id === movement.variantId,
-                        );
+                        const variant =
+                          product.variants &&
+                          product.variants.find(
+                            (v) => v.id === movement.variantId,
+                          );
                         return (
                           <TableRow key={movement.id}>
                             <TableCell>
@@ -739,19 +791,24 @@ export default function ProductDetail() {
                   </Button>
                 </>
               }
-              >
+            >
               <ProductEditForm product={product} />
             </Modal>
 
             {/* Add Variant Modal - Complete with all new fields */}
             <Modal
               isOpen={showVariantModal}
-              loadingModal={ loadingModal }
+              loadingModal={loadingModal}
               onClose={() => {
                 setShowVariantModal(false);
                 setDatosAEditar(initialVariantFormState);
               }}
-              title={JSON.stringify(datosAEditar) !== JSON.stringify(initialVariantFormState) ? "Editar Variante" : "Crear Variante"}
+              title={
+                JSON.stringify(datosAEditar) !==
+                JSON.stringify(initialVariantFormState)
+                  ? "Editar Variante"
+                  : "Crear Variante"
+              }
               size="lg"
               footer={
                 <>
@@ -769,7 +826,10 @@ export default function ProductDetail() {
                     type="submit"
                     form="variant-form"
                   >
-                    {JSON.stringify(datosAEditar) !== JSON.stringify(initialVariantFormState) ? "Editar" : "Crear"}
+                    {JSON.stringify(datosAEditar) !==
+                    JSON.stringify(initialVariantFormState)
+                      ? "Editar"
+                      : "Crear"}
                   </Button>
                 </>
               }

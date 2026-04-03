@@ -41,6 +41,7 @@ const VariantSchema = z.object({
     .array(
       z.object({
         name: z.string().optional(),
+        mixVariantId: z.coerce.number().optional(),
         productVariantId: z.coerce.number(),
         quantity: z.coerce.number().min(1),
       }),

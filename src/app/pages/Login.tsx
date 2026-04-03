@@ -1,33 +1,36 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router';
-import { AuthLayout } from '../layouts/AuthLayout';
-import { Card } from '../components/Card';
-import { Input } from '../components/Input';
-import { Button } from '../components/Button';
-import { useAuth } from '../contexts/AuthContext';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router";
+import { AuthLayout } from "../layouts/AuthLayout";
+import { Card } from "../components/Card";
+import { Input } from "../components/Input";
+import { Button } from "../components/Button";
+import { useAuth } from "../contexts/AuthContext";
+
+import { signIn } from "supertokens-web-js/recipe/emailpassword";
+import { getAuthorisationURLWithQueryParamsAndSetState } from "supertokens-web-js/recipe/thirdparty";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       const success = await login(email, password);
       if (success) {
-        navigate('/dashboard');
+        navigate("/dashboard");
       } else {
-        setError('Email o contraseña invalido');
+        setError("Email o contraseña invalido");
       }
     } catch (err) {
-      setError('Ocurrió un error. Intentalo de nuevo.');
+      setError("Ocurrió un error. Intentalo de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -36,16 +39,91 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      const success = await loginWithGoogle();
-      if (success) {
-        navigate('/dashboard');
-      }
+      await signInGoogleClicked();
     } catch (err) {
-      setError('Ocurrió un error. Intentalo de nuevo.');
+      setError("Ocurrió un error. Intentalo de nuevo.");
     } finally {
       setLoading(false);
     }
   };
+
+  async function signInClicked() {
+    const emailInput = document.getElementById("email") as HTMLInputElement;
+    const passwordInput = document.getElementById(
+      "password",
+    ) as HTMLInputElement;
+    console.log("emailInput", emailInput.value);
+    window.alert(emailInput.value + "" + passwordInput.value);
+    try {
+      const response = await signIn({
+        formFields: [
+          {
+            id: "email",
+            value: emailInput.value,
+          },
+          {
+            id: "password",
+            value: passwordInput.value,
+          },
+        ],
+      });
+
+      if (response.status === "FIELD_ERROR") {
+        // one of the input formFields failed validation
+        response.formFields.forEach((formField) => {
+          if (formField.id === "email") {
+            // Email validation failed (for example incorrect email syntax),
+            // or the email is not unique.
+            window.alert(formField.error);
+          } else if (formField.id === "password") {
+            // Password validation failed.
+            // Maybe it didn't match the password strength
+            window.alert(formField.error);
+          }
+        });
+      } else {
+        // sign up successful. The session tokens are automatically handled by
+        // the frontend SDK.
+        window.location.href = "/";
+      }
+    } catch (err: any) {
+      if (err.isSuperTokensGeneralError === true) {
+        // this may be a custom error message sent from the API by you.
+        window.alert(err.message);
+      } else {
+        window.alert("Oops! Something went wrong." + err);
+      }
+    }
+  }
+  async function signInGoogleClicked() {
+    try {
+      const authUrl = await getAuthorisationURLWithQueryParamsAndSetState({
+        thirdPartyId: "google",
+
+        // This is where Google should redirect the user back after login or error.
+        // This URL goes on the Google's dashboard as well.
+        frontendRedirectURI: "http://localhost:5173/auth/callback/google",
+      });
+
+      /*
+        Example value of authUrl: https://accounts.google.com/o/oauth2/v2/auth/oauthchooseaccount?scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&access_type=offline&include_granted_scopes=true&response_type=code&client_id=1060725074195-kmeum4crr01uirfl2op9kd5acmi9jutn.apps.googleusercontent.com&state=5a489996a28cafc83ddff&redirect_uri=https%3A%2F%2Fsupertokens.io%2Fdev%2Foauth%2Fredirect-to-app&flowName=GeneralOAuthFlow
+        */
+
+      // we redirect the user to google for auth.
+      // const success = await loginWithGoogle();
+      // if (success) {
+      //   navigate("/dashboard");
+      // }
+      window.location.assign(authUrl);
+    } catch (err: any) {
+      if (err.isSuperTokensGeneralError === true) {
+        // this may be a custom error message sent from the API by you.
+        window.alert(err.message);
+      } else {
+        window.alert("Oops! Something went wrong.");
+      }
+    }
+  }
 
   return (
     <AuthLayout>
@@ -55,7 +133,7 @@ export default function Login() {
           <p className="text-sm text-muted-foreground">Ingresá a tu cuenta</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={signInClicked} className="space-y-4">
           <Input
             type="email"
             label="Email"
@@ -80,12 +158,8 @@ export default function Login() {
             </div>
           )}
 
-          <Button 
-            type="submit" 
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Iniciando sesión..." : "Iniciar sesión"}
           </Button>
         </form>
 
@@ -94,7 +168,9 @@ export default function Login() {
             <div className="w-full border-t border-border"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-card text-muted-foreground">O continuá con</span>
+            <span className="px-2 bg-card text-muted-foreground">
+              O continuá con
+            </span>
           </div>
         </div>
 
@@ -127,7 +203,10 @@ export default function Login() {
         </Button>
 
         <div className="mt-6 text-center">
-          <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+          <Link
+            to="/forgot-password"
+            className="text-sm text-primary hover:underline"
+          >
             ¿Olvidaste tu contraseña?
           </Link>
         </div>
