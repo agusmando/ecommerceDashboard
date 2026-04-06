@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "./ui/tooltip";
 import { Button } from "./ui/button";
+import { useAuth } from "../contexts/AuthContext";
 
 const menuItems = [
   {
@@ -66,6 +67,8 @@ const menuItems = [
 export function Sidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+
+  const { user } = useAuth();
 
   return (
     <aside
@@ -136,8 +139,8 @@ export function Sidebar() {
              </div>
              {!collapsed && (
                  <div className="flex flex-col">
-                     <span className="text-sm font-medium text-sidebar-foreground">Admin Usuario</span>
-                     <span className="text-xs text-muted-foreground">admin@example.com</span>
+                     <span className="text-sm font-medium text-sidebar-foreground">{user?.name || "Admin Usuario"}</span>
+                     <span className="text-xs text-muted-foreground">{ user?.email || "admin@example.com"}</span>
                  </div>
              )}
         </div>

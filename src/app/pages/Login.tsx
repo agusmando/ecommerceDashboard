@@ -4,10 +4,10 @@ import { AuthLayout } from "../layouts/AuthLayout";
 import { Card } from "../components/Card";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
-import { useAuth } from "../contexts/AuthContext";
 
 import { signIn } from "supertokens-web-js/recipe/emailpassword";
 import { getAuthorisationURLWithQueryParamsAndSetState } from "supertokens-web-js/recipe/thirdparty";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -17,13 +17,15 @@ export default function Login() {
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const success = await login(email, password);
+      const emailInput = e.target[0] as HTMLInputElement;
+      const passwordInput = e.target[1] as HTMLInputElement;
+      const success = await login(emailInput.value, passwordInput.value);
       if (success) {
         navigate("/dashboard");
       } else {
@@ -36,6 +38,8 @@ export default function Login() {
     }
   };
 
+  
+
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
@@ -47,54 +51,6 @@ export default function Login() {
     }
   };
 
-  async function signInClicked() {
-    const emailInput = document.getElementById("email") as HTMLInputElement;
-    const passwordInput = document.getElementById(
-      "password",
-    ) as HTMLInputElement;
-    console.log("emailInput", emailInput.value);
-    window.alert(emailInput.value + "" + passwordInput.value);
-    try {
-      const response = await signIn({
-        formFields: [
-          {
-            id: "email",
-            value: emailInput.value,
-          },
-          {
-            id: "password",
-            value: passwordInput.value,
-          },
-        ],
-      });
-
-      if (response.status === "FIELD_ERROR") {
-        // one of the input formFields failed validation
-        response.formFields.forEach((formField) => {
-          if (formField.id === "email") {
-            // Email validation failed (for example incorrect email syntax),
-            // or the email is not unique.
-            window.alert(formField.error);
-          } else if (formField.id === "password") {
-            // Password validation failed.
-            // Maybe it didn't match the password strength
-            window.alert(formField.error);
-          }
-        });
-      } else {
-        // sign up successful. The session tokens are automatically handled by
-        // the frontend SDK.
-        window.location.href = "/";
-      }
-    } catch (err: any) {
-      if (err.isSuperTokensGeneralError === true) {
-        // this may be a custom error message sent from the API by you.
-        window.alert(err.message);
-      } else {
-        window.alert("Oops! Something went wrong." + err);
-      }
-    }
-  }
   async function signInGoogleClicked() {
     try {
       const authUrl = await getAuthorisationURLWithQueryParamsAndSetState({
@@ -133,7 +89,7 @@ export default function Login() {
           <p className="text-sm text-muted-foreground">Ingresá a tu cuenta</p>
         </div>
 
-        <form onSubmit={signInClicked} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             type="email"
             label="Email"

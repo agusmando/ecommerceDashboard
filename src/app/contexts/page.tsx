@@ -14,7 +14,7 @@ async function handleGoogleCallback() {
       } else {
         // sign in successful
       }
-      window.location.assign("/home");
+      window.location.assign("/dashboard");
     } else if (response.status === "SIGN_IN_UP_NOT_ALLOWED") {
       // the reason string is a user friendly message
       // about what went wrong. It can also contain a support code which users

@@ -9,16 +9,16 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!user) {
       navigate('/login');
     }
-  }, [isAuthenticated, navigate]);
+  }, [user, navigate]);
 
-  if (!isAuthenticated) {
+  if (!user) {
     return null;
   }
 

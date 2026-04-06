@@ -55,7 +55,7 @@ export default class BaseService<T> {
     }
   }
 
-  async getOne(id: number): Promise<BaseResponse<T>> {
+  async getOne(id: any): Promise<BaseResponse<T>> {
     console.log(id)
     const response = await axios.get(this.baseUrl + this.route + "/" + id);
     return response.data;
