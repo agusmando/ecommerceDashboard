@@ -1,12 +1,12 @@
-import axios from "axios";
+
+import api from "../config/axios";
 import type { BaseResponse, PaginatedResponse } from "../types";
 
 export default class BaseService<T> {
-  baseUrl: string;
+  axios = api;
   route: string;
   constructor(route: string) {
     this.route = route;
-    this.baseUrl = "https://canelaenramaback.onrender.com/api/";
   }
 
   async get(
@@ -45,8 +45,8 @@ export default class BaseService<T> {
           return param.key + "=" + param.value + "&";
         });
       }
-      const response = await axios.get(
-        this.baseUrl + this.route + paramBuilder,
+      const response = await this.axios.get(
+        this.route + paramBuilder,
       );
       return response.data;
     } catch (err: any) {
@@ -57,12 +57,12 @@ export default class BaseService<T> {
 
   async getOne(id: any): Promise<BaseResponse<T>> {
     console.log(id)
-    const response = await axios.get(this.baseUrl + this.route + "/" + id);
+    const response = await this.axios.get(this.route + "/" + id);
     return response.data;
   }
 
   async create(data: T): Promise<BaseResponse<T>> {
-    const response = await axios.post(this.baseUrl + this.route, data);
+    const response = await this.axios.post(this.route, data);
     return response.data;
   }
 }

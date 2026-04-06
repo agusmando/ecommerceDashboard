@@ -281,7 +281,13 @@ export default function ProductDetail() {
       console.log(hasComponentPayload);
     }
     const payload = {
-      ...data,
+      name: data.name,
+      currentStock: data.currentStock && data.contentMeasure == "KG" ? data.currentStock / 1000 : data.currentStock,
+      price: data.price,
+      contentMeasure: data.contentMeasure && data.contentMeasure == "KG" ? "G" : data.contentMeasure,
+      roundingOption: data.roundingOption,
+      contentAmount: data.contentAmount,
+      images: data.images,
       productId: Number(id),
       // Ensure each component includes mixVariantId (default to 0 if missing)
       profitMargin: data.profitMargin / 100,
@@ -297,11 +303,11 @@ export default function ProductDetail() {
         quantity: c.quantity,
       })),
       stockThreshold: data.stockThreshold ?? 0,
-      isComponentOf: [],
+      requestTime: data.requestTime == 0 ? "" : data.requestTime?.toString(),
     };
 
     // // cast via unknown to avoid overly strict structural mismatch errors
-    // productVariantService.create(payload as unknown as ProductVariant);
+    productVariantService.create(payload as unknown as ProductVariant);
   };
 
   const hasComponentSorting = (
