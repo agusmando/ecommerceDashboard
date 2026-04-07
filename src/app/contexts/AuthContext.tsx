@@ -5,12 +5,14 @@ import ThirdParty from "supertokens-auth-react/recipe/thirdparty";
 import type { User } from "../types";
 import { signIn } from "supertokens-web-js/recipe/emailpassword";
 import BaseService from "../service/baseService";
+import { getAuthorisationURLWithQueryParamsAndSetState } from "supertokens-web-js/recipe/thirdparty";
 
 interface AuthContextType {
   user: User | null;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
   loading: boolean;
   login: (email: string, password: string) => Promise<any>;
-  loginWithGoogle: () => Promise<boolean>;
+  loginWithGoogle: () => Promise<any>;
   logout: () => Promise<void>;
 }
 
@@ -105,12 +107,24 @@ useEffect(() => {
     }
   }
 
-  const loginWithGoogle = async (): Promise<boolean> => {
-    // Mock Google OAuth - in real app, this would use OAuth flow
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setUser(mockUsers[0]);
-    return true;
-  };
+  const loginWithGoogle = async (): Promise<any> => {
+    try {
+      const authUrl = await getAuthorisationURLWithQueryParamsAndSetState({
+        thirdPartyId: "google",
+        frontendRedirectURI: "http://localhost:5173/auth/callback/google",
+      });
+
+      window.location.assign(authUrl);
+
+    } catch (err: any) {
+      if (err.isSuperTokensGeneralError === true) {
+        // this may be a custom error message sent from the API by you.
+        window.alert(err.message);
+      } else {
+        window.alert("Oops! Something went wrong.");
+      }
+    }
+  }
   const logout = async () => {
     await Session.signOut();
     setUser(null);
@@ -118,7 +132,7 @@ useEffect(() => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, loginWithGoogle, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );
