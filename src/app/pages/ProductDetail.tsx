@@ -49,7 +49,7 @@ export default function ProductDetail() {
     images: [] as string[],
     contentAmount: 0,
     stockThreshold: 0,
-    packagingOptions: ["", "", ""],
+    packagingOptions: [0, 0, 0],
     roundingOption: 10,
     isComponentOf: [] as {
       active: boolean;
@@ -92,7 +92,7 @@ export default function ProductDetail() {
     profitMargin: number;
     price: number;
     images: string[];
-    packagingOptions: string[];
+    packagingOptions: number[];
     isComponentOf: {
       active: boolean;
       mixVariantId: number;
@@ -242,8 +242,8 @@ export default function ProductDetail() {
       price: foundVariant.price || 0,
       images: foundVariant.images || [],
       packagingOptions: foundVariant.packagingOptions
-        ? foundVariant.packagingOptions.map((p) => p.toString())
-        : ["", "", ""],
+        ? foundVariant.packagingOptions.map((p) => p)
+        : [0, 0, 0],
       isComponentOf: foundVariant.isComponentOf
         ? foundVariant.isComponentOf.map((c) => ({
             ...c,
@@ -272,7 +272,6 @@ export default function ProductDetail() {
   };
 
   const handleSubmitVariant = (data: VariantFormValues) => {
-    console.log("Creating variant:", data);
     if (data.hasComponents || initialVariantFormState.hasComponents) {
       const hasComponentPayload = hasComponentSorting(
         datosAEditar.hasComponents,
@@ -292,7 +291,7 @@ export default function ProductDetail() {
       // Ensure each component includes mixVariantId (default to 0 if missing)
       profitMargin: data.profitMargin / 100,
       packagingOptions:
-        (data.packagingOptions ?? [])[0] == ""
+        (data.packagingOptions ?? [])[0] == 0
           ? []
           : (data.packagingOptions ?? []),
       hasComponents: (data.hasComponents ?? []).map((c) => ({
@@ -306,8 +305,14 @@ export default function ProductDetail() {
       requestTime: data.requestTime == 0 ? "" : data.requestTime?.toString(),
     };
 
+    console.log("Variant is ", data.id && data.id > 0 ? "being edited": "being created", payload);
+    if (data.id && data.id > 0) {
+      productVariantService.edit(data.id, payload as unknown as ProductVariant);
+    } else {
+      productVariantService.create(payload as unknown as ProductVariant);
+    }
+
     // // cast via unknown to avoid overly strict structural mismatch errors
-    productVariantService.create(payload as unknown as ProductVariant);
   };
 
   const hasComponentSorting = (

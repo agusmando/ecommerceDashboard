@@ -34,7 +34,7 @@ const VariantSchema = z.object({
   requestTime: z.coerce.number().nonnegative().optional(),
   stockThreshold: z.coerce.number().nonnegative().optional(),
   roundingOption: z.coerce.number().nonnegative(),
-  packagingOptions: z.array(z.string()).optional(),
+  packagingOptions: z.array(z.number()).optional(),
   images: z.array(z.string()).optional(),
   isMix: z.boolean().default(false),
   hasComponents: z
@@ -110,10 +110,11 @@ const VariantForm = ({
 
   // Notificamos al padre cuando CUALQUIER valor cambie
   useEffect(() => {
-    if (onValuesChange) {
-      onValuesChange(allValues);
-    }
-  }, [allValues, onValuesChange]);
+      console.log(allValues)
+      if (onValuesChange) {
+        onValuesChange(allValues);
+      }
+  }, [allValues]);
 
   // Observamos cambios en valores específicos
   const contentMeasure = watch("contentMeasure");
@@ -127,7 +128,7 @@ const VariantForm = ({
       setValue("packagingOptions", undefined);
     } else {
       if (allValues.packagingOptions == null) {
-        setValue("packagingOptions", ["", "", ""]);
+        setValue("packagingOptions", [0, 0, 0]);
       }
     }
   }, [contentMeasure]);

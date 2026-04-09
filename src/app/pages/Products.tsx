@@ -331,7 +331,9 @@ export default function Products() {
       } catch (err) {}
     };
 
-    fetchData();
+    if (productList.length === 0) {
+      fetchData();
+    }
   }, []);
 
   return (

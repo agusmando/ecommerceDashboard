@@ -65,4 +65,9 @@ export default class BaseService<T> {
     const response = await this.axios.post(this.route, data);
     return response.data;
   }
+
+  async edit(id: number, data: T): Promise<BaseResponse<T>> {
+    const response = await this.axios.put(this.route + "/" + id, data);
+    return response.data;
+  }
 }
