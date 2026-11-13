@@ -14,6 +14,9 @@ import {
   ArrowLeftRight,
   PackageSearch,
   ShoppingBasket,
+  Truck,
+  MessageSquareText,
+  GalleryHorizontal,
   ChevronsLeft,
   ChevronsRight,
   X,
@@ -23,7 +26,7 @@ import { cn } from '../lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { useAppDispatch, useAppSelector } from '../store';
 import { toggleSidebar } from '../store/uiSlice';
-import { orderItemsApi, ordersApi } from '../api/resources';
+import { orderItemsApi, ordersApi, useReviewStatsQuery } from '../api/resources';
 
 interface MenuItem {
   icon: LucideIcon;
@@ -31,7 +34,7 @@ interface MenuItem {
   path: string;
   end?: boolean;
   /** Contador en vivo (sale de la cache de RTK Query). */
-  count?: 'pendingOrders' | 'awaitingItems';
+  count?: 'pendingOrders' | 'awaitingItems' | 'pendingReviews';
 }
 
 const sections: { title: string; items: MenuItem[] }[] = [
@@ -40,6 +43,7 @@ const sections: { title: string; items: MenuItem[] }[] = [
     items: [
       { icon: LayoutDashboard, label: 'Inicio', path: '/dashboard', end: true },
       { icon: ShoppingCart, label: 'Órdenes', path: '/dashboard/orders', count: 'pendingOrders' },
+      { icon: Truck, label: 'Envíos', path: '/dashboard/shipments' },
       { icon: PackageSearch, label: 'Reposición', path: '/dashboard/restock', count: 'awaitingItems' },
       { icon: ShoppingBasket, label: 'Carritos', path: '/dashboard/carts' },
     ],
@@ -51,6 +55,13 @@ const sections: { title: string; items: MenuItem[] }[] = [
       { icon: Boxes, label: 'Inventario', path: '/dashboard/inventory' },
       { icon: ArrowLeftRight, label: 'Movimientos', path: '/dashboard/movements' },
       { icon: Tag, label: 'Ofertas', path: '/dashboard/offers' },
+    ],
+  },
+  {
+    title: 'Contenido',
+    items: [
+      { icon: MessageSquareText, label: 'Reseñas', path: '/dashboard/reviews', count: 'pendingReviews' },
+      { icon: GalleryHorizontal, label: 'Banners', path: '/dashboard/banners' },
     ],
   },
   {
@@ -76,9 +87,11 @@ function useMenuCounts() {
   const opts = { pollingInterval: 60_000 };
   const pending = ordersApi.usePage({ status: 'PENDING', amountPerPage: 1 }, opts);
   const awaiting = orderItemsApi.usePage({ status: 'AWAITING_STOCK', amountPerPage: 1 }, opts);
+  const reviews = useReviewStatsQuery(undefined, opts);
   return {
     pendingOrders: pending.data?.pagination.totalAmount ?? 0,
     awaitingItems: awaiting.data?.pagination.totalAmount ?? 0,
+    pendingReviews: reviews.data?.pending ?? 0,
   };
 }
 

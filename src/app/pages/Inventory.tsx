@@ -5,7 +5,7 @@ import { variantsApi } from '../api/resources';
 import type { ProductVariant } from '../api/types';
 import { useListFilters } from '../hooks/useListFilters';
 import { useActiveToggle } from '../hooks/useActiveToggle';
-import { formatQty, isMix, priceUnit, stockLevel } from '../lib/domain';
+import { formatQty, isMix, stockLevel } from '../lib/domain';
 import { cn, formatCurrency, formatNumber } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
 import { StatTile } from '../components/StatTile';
@@ -16,6 +16,7 @@ import { RowActions } from '../components/RowActions';
 import { AffixInput } from '../components/Form';
 import { Switch } from '../components/ui/switch';
 import { variantLabel } from '../components/CatalogPickers';
+import { VariantPrice } from '../components/VariantPrice';
 import { useVariantModals } from '../components/products/VariantModals';
 
 const DEFAULTS = {
@@ -108,12 +109,7 @@ export default function Inventory() {
       key: 'final',
       header: 'Precio',
       align: 'right',
-      cell: (v) => (
-        <span className="font-medium tabular-nums">
-          {formatCurrency(v.finalPrice)}
-          <span className="text-xs font-normal text-muted-foreground">{priceUnit(v.contentMeasure)}</span>
-        </span>
-      ),
+      cell: (v) => <VariantPrice variant={v} />,
     },
     { key: 'stock', header: 'Stock', cell: (v) => <StockBar v={v} /> },
     {

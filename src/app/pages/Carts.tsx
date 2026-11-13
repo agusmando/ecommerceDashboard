@@ -10,7 +10,8 @@ import { StatTile } from '../components/StatTile';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { useListFilters } from '../hooks/useListFilters';
 import { computeFinalPrice, formatPack, formatQty } from '../lib/domain';
-import { formatCurrency, formatDateTime, formatNumber, formatRelative } from '../lib/utils';
+import { OfferTag } from '../components/VariantPrice';
+import { cn, formatCurrency, formatDateTime, formatNumber, formatRelative } from '../lib/utils';
 
 const DEFAULTS = { content: 'all' as 'all' | 'items' | 'empty', sort: 'recent' as 'recent' | 'oldest' | 'value' };
 
@@ -27,6 +28,7 @@ function lineUnits(it: CartItem) {
 }
 
 function lineValue(it: CartItem) {
+  if (it.quote) return it.quote.total; // cotización del backend: ofertas aplicadas
   const v = it.productVariant;
   if (!v) return 0;
   const price = v.finalPrice ?? computeFinalPrice(v.price ?? 0, v.profitMargin ?? 0, v.roundingOption ?? 10);
@@ -34,7 +36,7 @@ function lineValue(it: CartItem) {
   return price * (v.contentMeasure === 'KG' ? units / 1000 : units);
 }
 
-const cartValue = (c: Cart) => (c.items ?? []).reduce((acc, it) => acc + lineValue(it), 0);
+const cartValue = (c: Cart) => c.summary?.total ?? (c.items ?? []).reduce((acc, it) => acc + lineValue(it), 0);
 
 function owner(c: Cart) {
   if (c.userSuperTokensId) return { label: c.userSuperTokensId.slice(0, 12) + '…', guest: false };
@@ -109,7 +111,7 @@ export default function Carts() {
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile label="Carritos (página)" value={formatNumber(all?.length)} loading={isLoading} />
         <StatTile label="Con productos" value={formatNumber(withItems.length)} loading={isLoading} />
-        <StatTile label="Valor potencial" value={formatCurrency(pageValue)} hint="Sin ofertas aplicadas" loading={isLoading} />
+        <StatTile label="Valor potencial" value={formatCurrency(pageValue)} hint="Con ofertas aplicadas" loading={isLoading} />
       </div>
 
       <DataTable
@@ -187,7 +189,15 @@ export default function Carts() {
                               : formatQty(it.quantity, v?.contentMeasure)}
                           </div>
                         </div>
-                        <div className="text-right text-sm font-medium tabular-nums">{formatCurrency(lineValue(it))}</div>
+                        <div className="text-right text-sm tabular-nums">
+                          {!!it.quote?.discount && (
+                            <div className="text-xs text-muted-foreground line-through">{formatCurrency(it.quote.total + it.quote.discount)}</div>
+                          )}
+                          <div className={cn('font-medium', !!it.quote?.discount && 'text-emerald-700 dark:text-emerald-400')}>
+                            {formatCurrency(lineValue(it))}
+                          </div>
+                          {!!it.quote?.discount && it.quote.offerType && <OfferTag label={it.quote.offerType} />}
+                        </div>
                       </div>
                       <div className="mt-2 flex items-center gap-1.5 text-xs">
                         {enough ? (
@@ -204,9 +214,15 @@ export default function Carts() {
                     </div>
                   );
                 })}
+                {!!selected.summary?.discount && (
+                  <div className="flex justify-between border-t border-border pt-3 text-sm text-emerald-700 dark:text-emerald-400">
+                    <span>Descuentos</span>
+                    <span className="tabular-nums">−{formatCurrency(selected.summary.discount)}</span>
+                  </div>
+                )}
                 {!!selected.items?.length && (
                   <div className="flex justify-between border-t border-border pt-3 text-sm">
-                    <span className="text-muted-foreground">Total estimado (sin ofertas)</span>
+                    <span className="text-muted-foreground">Total estimado</span>
                     <span className="font-semibold tabular-nums">{formatCurrency(cartValue(selected))}</span>
                   </div>
                 )}

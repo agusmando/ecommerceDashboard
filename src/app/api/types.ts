@@ -131,6 +131,10 @@ export interface ProductVariant {
   availableWeb: boolean;
   availablePedidosYa: boolean;
   finalPrice?: number;
+  /** Oferta vigente (calculada por el backend, mismas reglas que el carrito). */
+  activeOffer?: ActiveOffer | null;
+  /** Precio por kg/u con la oferta aplicada a 1 unidad; null si depende de la cantidad (ej. 3x2). */
+  offerPrice?: number | null;
   hasComponents?: Dependency[];
   isComponentOf?: Dependency[];
   offers?: Offer[];
@@ -364,6 +368,8 @@ export interface Order {
   estimatedReadyAt: ISODate | null;
   status: OrderStatus;
   orderItems?: OrderItem[];
+  /** Solo en `GET /order/:id` y `/order/mine` (null si la orden no tiene envío). */
+  shipment?: Shipment | null;
 }
 
 export interface OrderFilters extends ListParams {
@@ -398,6 +404,18 @@ export interface UpdateOrderInput {
 
 // ---------------------------------------------------------------- Carritos
 
+export interface ActiveOffer {
+  id: Id;
+  scope: 'VARIANT' | 'PRODUCT';
+  discountType: DiscountType;
+  discountValue: number | null;
+  discountQuantity: number | null;
+  quantityToGet: number | null;
+  finishTime: ISODate | null;
+  /** "20% off", "-$100", "3x2", "20% off desde 3". */
+  label: string;
+}
+
 export interface CartItem {
   cartId: Id;
   productVariantId: Id;
@@ -405,6 +423,8 @@ export interface CartItem {
   quantity: number;
   createdAt: ISODate;
   productVariant?: ProductVariant;
+  /** Cotización del backend (listado con `detalle`). */
+  quote?: { unitPrice: number; total: number; discount: number; offerType: string };
 }
 
 export interface Cart {
@@ -414,4 +434,312 @@ export interface Cart {
   createdAt: ISODate;
   updatedAt: ISODate;
   items?: CartItem[];
+  summary?: { itemsCount: number; subtotal: number; discount: number; total: number };
+}
+
+// ---------------------------------------------------------------- Envíos
+
+export const SHIPMENT_METHODS = ['DELIVERY', 'PICKUP'] as const;
+export type ShipmentMethod = (typeof SHIPMENT_METHODS)[number];
+
+export const SHIPMENT_STATUSES = [
+  'PENDING',
+  'PREPARING',
+  'READY_FOR_PICKUP',
+  'SHIPPED',
+  'OUT_FOR_DELIVERY',
+  'FAILED_ATTEMPT',
+  'DELIVERED',
+  'RETURNED',
+  'CANCELLED',
+] as const;
+export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number];
+
+/**
+ * Transiciones válidas (espejo de `GET /shipment/meta`). Se usan solo mientras
+ * la meta del backend no llegó: la fuente de verdad es el servidor.
+ */
+export const SHIPMENT_TRANSITIONS: Record<ShipmentMethod, Partial<Record<ShipmentStatus, ShipmentStatus[]>>> = {
+  PICKUP: {
+    PENDING: ['PREPARING', 'READY_FOR_PICKUP', 'CANCELLED'],
+    PREPARING: ['READY_FOR_PICKUP', 'CANCELLED'],
+    READY_FOR_PICKUP: ['DELIVERED', 'CANCELLED'],
+  },
+  DELIVERY: {
+    PENDING: ['PREPARING', 'SHIPPED', 'CANCELLED'],
+    PREPARING: ['SHIPPED', 'CANCELLED'],
+    SHIPPED: ['OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED_ATTEMPT', 'RETURNED'],
+    OUT_FOR_DELIVERY: ['DELIVERED', 'FAILED_ATTEMPT', 'RETURNED'],
+    FAILED_ATTEMPT: ['OUT_FOR_DELIVERY', 'RETURNED', 'CANCELLED'],
+  },
+};
+
+export const SHIPMENT_FINAL_STATUSES: ShipmentStatus[] = ['DELIVERED', 'RETURNED', 'CANCELLED'];
+
+export interface ShipmentEvent {
+  id: Id;
+  shipmentId: Id;
+  status: ShipmentStatus;
+  description: string | null;
+  location: string | null;
+  createdAt: ISODate;
+}
+
+export interface Shipment {
+  id: Id;
+  orderId: Id;
+  /** Código público de seguimiento (lo genera el backend, p. ej. "CER-7X4K9P2Q"). */
+  trackingCode: string;
+  method: ShipmentMethod;
+  status: ShipmentStatus;
+  carrier: string | null;
+  carrierTrackingCode: string | null;
+  carrierTrackingUrl: string | null;
+  recipientName: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  province: string | null;
+  postalCode: string | null;
+  notes: string | null;
+  cost: number;
+  estimatedDeliveryAt: ISODate | null;
+  shippedAt: ISODate | null;
+  deliveredAt: ISODate | null;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+  /** Ordenados por fecha ascendente. */
+  events: ShipmentEvent[];
+  /** Solo en el listado con `detalle=true`. */
+  order?: Pick<Order, 'id' | 'status' | 'userSuperTokensId' | 'totalPrice' | 'createdAt'> & {
+    user?: { name: string | null; email: string | null } | null;
+  };
+}
+
+export interface ShipmentMeta {
+  statuses: ShipmentStatus[];
+  methods: ShipmentMethod[];
+  transitions: Record<ShipmentMethod, Partial<Record<ShipmentStatus, ShipmentStatus[]>>>;
+  finalStatuses: ShipmentStatus[];
+}
+
+export interface ShipmentFilters extends ListParams {
+  status?: ShipmentStatus | '';
+  method?: ShipmentMethod | '';
+  orderId?: Id | '';
+  trackingCode?: string;
+  carrier?: string;
+  /** Creados desde (YYYY-MM-DD). */
+  createdFrom?: string;
+}
+
+export interface ShipmentFields {
+  method?: ShipmentMethod;
+  carrier?: string | null;
+  carrierTrackingCode?: string | null;
+  carrierTrackingUrl?: string | null;
+  recipientName?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
+  notes?: string | null;
+  cost?: number;
+  estimatedDeliveryAt?: ISODate | null;
+}
+
+export interface CreateShipmentInput extends ShipmentFields {
+  orderId: Id;
+  method: ShipmentMethod;
+}
+
+export interface ShipmentEventInput {
+  status: ShipmentStatus;
+  description?: string;
+  location?: string;
+}
+
+// ---------------------------------------------------------------- Reseñas
+
+export const REVIEW_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
+
+export interface Review {
+  id: Id;
+  productId: Id;
+  productVariantId: Id;
+  /** Entero de 1 a 5. */
+  rating: number;
+  title: string | null;
+  comment: string | null;
+  status: ReviewStatus;
+  verifiedPurchase: boolean;
+  /** Respuesta pública de la tienda. */
+  reply: string | null;
+  repliedAt: ISODate | null;
+  moderatedAt: ISODate | null;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+  /** Nombre público abreviado ("María G."). */
+  authorName: string;
+  productVariant?: {
+    id: Id;
+    name: string;
+    images: { id: Id; secure_url: string }[];
+    product: { id: Id; name: string };
+  };
+  /** Solo staff / autor. */
+  user?: { name: string | null; email: string | null } | null;
+  rejectionReason?: string | null;
+}
+
+export type ReviewOrder = 'recent' | 'rating_desc' | 'rating_asc';
+
+export interface ReviewFilters extends Omit<ListParams, 'active'> {
+  productId?: Id | '';
+  productVariantId?: Id | '';
+  rating?: number | '';
+  status?: ReviewStatus | '';
+  search?: string;
+  orderBy?: ReviewOrder;
+}
+
+export interface ReviewSummary {
+  productId: Id;
+  /** 0 si no hay reseñas (1 decimal). */
+  average: number;
+  count: number;
+  distribution: Record<1 | 2 | 3 | 4 | 5, number>;
+  byVariant: { productVariantId: Id; average: number; count: number }[];
+}
+
+export interface ReviewStats {
+  pending: number;
+  approved: number;
+  rejected: number;
+  average: number;
+}
+
+export interface ModerateReviewInput {
+  status: 'APPROVED' | 'REJECTED';
+  reply?: string | null;
+  rejectionReason?: string;
+}
+
+// ---------------------------------------------------------------- Reseñas de Google
+
+export interface GoogleReview {
+  id: Id;
+  googleId: string;
+  authorName: string;
+  authorPhotoUrl: string | null;
+  authorUrl: string | null;
+  rating: number;
+  text: string | null;
+  language: string | null;
+  /** Texto de Google, p. ej. "hace 2 semanas". */
+  relativeTime: string | null;
+  publishedAt: ISODate | null;
+  featured: boolean;
+  active: boolean;
+  fetchedAt: ISODate;
+}
+
+export interface GooglePlaceInfo {
+  placeId: string | null;
+  name: string | null;
+  rating: number | null;
+  userRatingCount: number | null;
+  googleMapsUri: string | null;
+  lastSyncAt: ISODate | null;
+  /** false si faltan las variables de entorno del backend. */
+  configured: boolean;
+  lastError: string | null;
+}
+
+export interface GoogleReviewsResponse {
+  place: GooglePlaceInfo;
+  reviews: GoogleReview[];
+}
+
+// ---------------------------------------------------------------- Banners
+
+export const BANNER_PLACEMENTS = ['HOME_HERO', 'HOME_RECOMMENDATION', 'CATALOG_STRIP', 'ANNOUNCEMENT_BAR'] as const;
+export type BannerPlacement = (typeof BANNER_PLACEMENTS)[number];
+
+export const BANNER_SIZES = ['SQUARE', 'WIDE'] as const;
+export type BannerSize = (typeof BANNER_SIZES)[number];
+
+export interface Banner {
+  id: Id;
+  placement: BannerPlacement;
+  /** Nombre interno; también es el `alt` de la imagen. */
+  name: string;
+  eyebrow: string | null;
+  headline: string | null;
+  text: string | null;
+  ctaLabel: string | null;
+  /** Ruta interna ("/productos?categoria=x") o URL absoluta. */
+  linkUrl: string | null;
+  size: BannerSize | null;
+  desktopImageUrl: string | null;
+  /** Si es null la web usa la de escritorio. */
+  mobileImageUrl: string | null;
+  backgroundColor: string | null;
+  textColor: string | null;
+  position: number;
+  startsAt: ISODate | null;
+  endsAt: ISODate | null;
+  active: boolean;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+}
+
+export interface Dimensions {
+  width: number;
+  height: number;
+}
+
+export interface BannerPlacementSpec {
+  key: BannerPlacement;
+  label: string;
+  description: string;
+  desktop: Dimensions | null;
+  mobile: Dimensions | null;
+  /** Solo HOME_RECOMMENDATION. */
+  sizes?: Record<BannerSize, Dimensions>;
+  imageRequired: boolean;
+  textRequired: boolean;
+  /** Informativo. */
+  maxActive: number | null;
+}
+
+export interface BannerFilters extends ListParams {
+  placement?: BannerPlacement | '';
+  name?: string;
+}
+
+/** Campos de texto del alta/modificación ('' borra un campo opcional al editar). */
+export interface BannerFields {
+  placement?: BannerPlacement;
+  name?: string;
+  eyebrow?: string;
+  headline?: string;
+  text?: string;
+  ctaLabel?: string;
+  linkUrl?: string;
+  size?: BannerSize | '';
+  backgroundColor?: string;
+  textColor?: string;
+  /** ISO o ''. */
+  startsAt?: string;
+  endsAt?: string;
+}
+
+export interface BannerInput extends BannerFields {
+  desktopImage?: File | null;
+  mobileImage?: File | null;
+  removeDesktopImage?: boolean;
+  removeMobileImage?: boolean;
 }

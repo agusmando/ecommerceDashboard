@@ -21,7 +21,7 @@ import { useAppDispatch } from '../store';
 import { patchFilters } from '../store/filtersSlice';
 import { useActiveToggle } from '../hooks/useActiveToggle';
 import { useAction } from '../hooks/useAction';
-import { describeOffer, formatQty, isMix, MEASURE_LABEL, offerState, priceUnit, stockLevel } from '../lib/domain';
+import { describeOffer, formatQty, isMix, MEASURE_LABEL, offerState, stockLevel } from '../lib/domain';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
@@ -34,6 +34,8 @@ import { TagMultiSelect } from '../components/CatalogPickers';
 import { EditProductModal } from '../components/products/EditProductModal';
 import { AddVariantModal } from '../components/products/AddVariantModal';
 import { PackagingChips, useVariantModals } from '../components/products/VariantModals';
+import { VariantPrice } from '../components/VariantPrice';
+import { ProductReviewsCard } from '../components/reviews/ProductReviewsCard';
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -143,12 +145,7 @@ export default function ProductDetail() {
       key: 'final',
       header: 'Precio',
       align: 'right',
-      cell: (v) => (
-        <span className="font-medium tabular-nums">
-          {formatCurrency(v.finalPrice)}
-          <span className="text-xs font-normal text-muted-foreground">{priceUnit(v.contentMeasure)}</span>
-        </span>
-      ),
+      cell: (v) => <VariantPrice variant={v} />,
     },
     {
       key: 'stock',
@@ -354,6 +351,8 @@ export default function ProductDetail() {
           }}
         />
       </div>
+
+      <ProductReviewsCard product={product} />
 
       <EditProductModal product={product} isOpen={editing} onClose={() => setEditing(false)} />
       <AddVariantModal product={product} isOpen={addingVariant} onClose={() => setAddingVariant(false)} />

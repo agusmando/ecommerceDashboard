@@ -4,8 +4,9 @@ import { AlertTriangle, Info, Plus, Trash2 } from 'lucide-react';
 import { ordersApi } from '../../api/resources';
 import { PAYMENT_TYPES, type Id, type PaymentType, type ProductVariant } from '../../api/types';
 import { useAction } from '../../hooks/useAction';
-import { formatPack, formatQty, paymentLabel, priceUnit } from '../../lib/domain';
-import { formatCurrency, formatOrderNumber } from '../../lib/utils';
+import { applyOfferPrice, formatPack, formatQty, paymentLabel, priceUnit } from '../../lib/domain';
+import { OfferTag } from '../VariantPrice';
+import { cn, formatCurrency, formatOrderNumber } from '../../lib/utils';
 import { Button } from '../Button';
 import { VariantPicker, variantLabel } from '../CatalogPickers';
 import { Field, inputClass } from '../Form';
@@ -27,10 +28,12 @@ const newLine = (): Line => ({ key: ++seq, variantId: null, bulk: 0, quantity: '
 function estimate(line: Line) {
   const v = line.variant;
   const qty = Number(line.quantity) || 0;
-  if (!v || qty <= 0) return { units: 0, price: 0 };
+  if (!v || qty <= 0) return { units: 0, price: 0, list: 0 };
   const units = line.bulk ? qty * line.bulk : qty;
   const priceUnits = v.contentMeasure === 'KG' ? units / 1000 : units;
-  return { units, price: (v.finalPrice ?? 0) * priceUnits };
+  const unit = v.finalPrice ?? 0;
+  const after = applyOfferPrice(unit, priceUnits, v.activeOffer);
+  return { units, price: after * priceUnits, list: unit * priceUnits };
 }
 
 /**
@@ -176,7 +179,15 @@ export function CreateOrderModal({ isOpen, onClose }: { isOpen: boolean; onClose
                       />
                     </Field>
                     <div className="text-sm sm:pt-7">
-                      <div className="font-semibold tabular-nums">{formatCurrency(est.price)}</div>
+                      <div className="flex flex-wrap items-baseline gap-x-1.5">
+                        <span className={cn('font-semibold tabular-nums', est.list - est.price > 0.009 && 'text-emerald-700 dark:text-emerald-400')}>
+                          {formatCurrency(est.price)}
+                        </span>
+                        {est.list - est.price > 0.009 && (
+                          <span className="text-xs text-muted-foreground line-through tabular-nums">{formatCurrency(est.list)}</span>
+                        )}
+                      </div>
+                      {v.activeOffer && <OfferTag label={v.activeOffer.label} className="mt-0.5" />}
                       <div className="text-xs text-muted-foreground">
                         {formatCurrency(v.finalPrice)}
                         {priceUnit(v.contentMeasure)} · {formatQty(est.units, v.contentMeasure)}

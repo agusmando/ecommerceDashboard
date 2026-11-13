@@ -1,18 +1,16 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Info } from 'lucide-react';
-import { offersApi, productsApi } from '../../api/resources';
+import { offersApi } from '../../api/resources';
 import { DISCOUNT_TYPES, type DiscountType, type Id, type Offer, type OfferInput, type ProductVariant } from '../../api/types';
 import { useAction } from '../../hooks/useAction';
 import { getErrorMessage } from '../../api/client';
-import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { DISCOUNT_TYPE, describeOffer, isoToLocalInput } from '../../lib/domain';
 import { Button } from '../Button';
 import { Modal } from '../Modal';
 import { AffixInput, Field, FormGrid, inputClass, num } from '../Form';
-import { Combobox } from '../Pickers';
 import { Segmented } from '../Filters';
 import { FormError } from '../States';
-import { VariantPicker, variantLabel } from '../CatalogPickers';
+import { ProductPicker, VariantPicker, variantLabel } from '../CatalogPickers';
 
 const HELP: Record<DiscountType, string> = {
   PERCENTAGE: 'Descuento porcentual sobre el precio de venta.',
@@ -26,25 +24,6 @@ const HELP: Record<DiscountType, string> = {
 const needsValue = (t: DiscountType) => t !== 'BUY_MORE_GET_MORE' && t !== 'BUY_ONE_GET_MORE';
 const needsQty = (t: DiscountType) => t.startsWith('BUY_');
 const isPercent = (t: DiscountType) => t === 'PERCENTAGE' || t === 'BUY_MORE_GET_DISCOUNT';
-
-function ProductCombobox({ value, label, onChange }: { value: Id | null; label?: string; onChange: (id: Id | null, name?: string) => void }) {
-  const [q, setQ] = useState('');
-  const dq = useDebouncedValue(q, 300);
-  const { data, isFetching } = productsApi.usePage({ name: dq, amountPerPage: 30 });
-  const rows = data?.content ?? [];
-  return (
-    <Combobox
-      value={value}
-      selectedLabel={label}
-      onSearch={setQ}
-      loading={isFetching && !data}
-      placeholder="Buscar producto…"
-      searchPlaceholder="Nombre del producto…"
-      options={rows.map((p) => ({ value: p.id, label: p.active ? p.name : `${p.name} (inactivo)` }))}
-      onChange={(id) => onChange(id as Id | null, rows.find((r) => r.id === id)?.name)}
-    />
-  );
-}
 
 interface Props {
   isOpen: boolean;
@@ -208,7 +187,7 @@ export function OfferFormModal({ isOpen, onClose, offer }: Props) {
                 }}
               />
             ) : (
-              <ProductCombobox
+              <ProductPicker
                 value={productId}
                 label={productName ?? (productId ? `Producto #${productId}` : undefined)}
                 onChange={(id, name) => {

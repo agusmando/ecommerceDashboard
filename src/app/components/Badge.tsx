@@ -2,13 +2,17 @@ import type { ReactNode } from 'react';
 import { cn } from '../lib/utils';
 import type { Tone } from '../lib/domain';
 import {
+  BANNER_STATE,
   MOVEMENT_TYPE,
   OFFER_STATE,
   ORDER_ITEM_STATUS,
   ORDER_STATUS,
+  REVIEW_STATUS,
+  SHIPMENT_STATUS,
+  type BannerState,
   type OfferState,
 } from '../lib/domain';
-import type { MovementType, OrderItemStatus, OrderStatus } from '../api/types';
+import type { MovementType, OrderItemStatus, OrderStatus, ReviewStatus, ShipmentStatus } from '../api/types';
 
 const TONES: Record<Tone, string> = {
   default: 'bg-muted text-muted-foreground ring-border',
@@ -83,5 +87,29 @@ export const MovementTypeBadge = ({ type }: { type: MovementType }) => {
 export const OfferStateBadge = ({ state }: { state: OfferState }) => (
   <Badge tone={OFFER_STATE[state].tone} dot>
     {OFFER_STATE[state].label}
+  </Badge>
+);
+
+export const ShipmentStatusBadge = ({ status }: { status: ShipmentStatus }) => {
+  const s = SHIPMENT_STATUS[status] ?? { label: status, tone: 'default' as Tone };
+  return (
+    <Badge tone={s.tone} dot>
+      {s.label}
+    </Badge>
+  );
+};
+
+export const ReviewStatusBadge = ({ status }: { status: ReviewStatus }) => {
+  const s = REVIEW_STATUS[status] ?? { label: status, tone: 'default' as Tone };
+  return (
+    <Badge tone={s.tone} dot>
+      {s.label}
+    </Badge>
+  );
+};
+
+export const BannerStateBadge = ({ state }: { state: BannerState }) => (
+  <Badge tone={BANNER_STATE[state].tone} dot>
+    {BANNER_STATE[state].label}
   </Badge>
 );

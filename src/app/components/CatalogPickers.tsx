@@ -68,6 +68,42 @@ export function ProductMultiSelect(p: MultiProps) {
   return <MultiSelect {...p} options={options} loading={isFetching && !data} onSearch={setQ} placeholder={p.placeholder ?? 'Buscar productos'} onChange={(v) => p.onChange(v as Id[])} />;
 }
 
+/** Producto único con búsqueda en el servidor (`?name=`). `onChange` devuelve también el nombre. */
+export function ProductPicker({
+  value,
+  label,
+  onChange,
+  placeholder = 'Buscar producto…',
+  clearable,
+  className,
+}: {
+  value: Id | null;
+  label?: string;
+  onChange: (id: Id | null, name?: string) => void;
+  placeholder?: string;
+  clearable?: boolean;
+  className?: string;
+}) {
+  const [q, setQ] = useState('');
+  const dq = useDebouncedValue(q, 300);
+  const { data, isFetching } = productsApi.usePage({ name: dq, amountPerPage: 30 });
+  const rows = data?.content ?? [];
+  return (
+    <Combobox
+      value={value}
+      selectedLabel={label}
+      onSearch={setQ}
+      loading={isFetching && !data}
+      placeholder={placeholder}
+      searchPlaceholder="Nombre del producto…"
+      clearable={clearable}
+      className={className}
+      options={rows.map((p) => ({ value: p.id, label: p.active ? p.name : `${p.name} (inactivo)` }))}
+      onChange={(id) => onChange(id as Id | null, rows.find((r) => r.id === id)?.name)}
+    />
+  );
+}
+
 export function variantLabel(v: Pick<ProductVariant, 'name' | 'product'>) {
   const product = v.product?.name;
   return product && product !== v.name ? `${product} · ${v.name}` : v.name;

@@ -18,6 +18,7 @@ import { RowActions } from '../components/RowActions';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { Pagination } from '../components/Pagination';
 import { useBrandOptions, useCategoryOptions, useTagOptions } from '../components/CatalogPickers';
+import { OfferTag } from '../components/VariantPrice';
 import { CreateProductModal } from '../components/products/CreateProductModal';
 
 const DEFAULTS = {
@@ -48,13 +49,16 @@ export function productSummary(p: Product) {
 }
 
 function PriceRange({ p }: { p: Product }) {
-  const { min, max, measure } = productSummary(p);
+  const { min, max, measure, variants } = productSummary(p);
+  const offers = Array.from(new Set(variants.map((v) => v.activeOffer?.label).filter(Boolean)));
+  const offer = offers.length === 1 ? offers[0]! : offers.length > 1 ? 'Ofertas' : null;
   if (!min) return <span className="text-muted-foreground">—</span>;
   return (
     <span className="tabular-nums">
       {formatCurrency(min)}
       {max !== min && <> – {formatCurrency(max)}</>}
       <span className="text-xs text-muted-foreground">{priceUnit(measure)}</span>
+      {offer && <OfferTag label={offer} className="ml-1.5" />}
     </span>
   );
 }

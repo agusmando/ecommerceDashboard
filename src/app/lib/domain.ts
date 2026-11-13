@@ -1,4 +1,7 @@
 import type {
+  Banner,
+  BannerPlacement,
+  BannerSize,
   DiscountType,
   Measure,
   MovementType,
@@ -8,6 +11,9 @@ import type {
   OrderStatus,
   PaymentType,
   ProductVariant,
+  ReviewStatus,
+  ShipmentMethod,
+  ShipmentStatus,
 } from '../api/types';
 import { formatCurrency, formatNumber } from './utils';
 
@@ -145,6 +151,41 @@ export const CLOSED_ITEM_STATUSES: OrderItemStatus[] = ['CANCELLED', 'RETURNED']
 
 // ---------------------------------------------------------------- Ofertas
 
+/**
+ * Precio por unidad de precio (kg/u) con la oferta aplicada a `priceUnits`
+ * unidades. Espejo de `OfferService.applyOffer` del backend; la orden siempre
+ * usa el cálculo del servidor, esto es solo para estimar.
+ */
+export function applyOfferPrice(
+  unitPrice: number,
+  priceUnits: number,
+  o?: Pick<Offer, 'discountType' | 'discountValue' | 'discountQuantity' | 'quantityToGet'> | null,
+): number {
+  if (!o || priceUnits <= 0) return unitPrice;
+  const value = Number(o.discountValue ?? 0);
+  const from = Number(o.discountQuantity) || 0;
+  switch (o.discountType) {
+    case 'PERCENTAGE':
+      return unitPrice * (1 - value / 100);
+    case 'FIXED':
+      return Math.max(0, unitPrice - value);
+    case 'BUY_ONE_GET_MORE':
+    case 'BUY_MORE_GET_MORE': {
+      const take = from || 1;
+      const pay = Number(o.quantityToGet) || take;
+      if (priceUnits < take) return unitPrice;
+      const sets = Math.floor(priceUnits / take);
+      return ((sets * pay + (priceUnits - sets * take)) * unitPrice) / priceUnits;
+    }
+    case 'BUY_MORE_GET_DISCOUNT':
+      return priceUnits >= from ? unitPrice * (1 - value / 100) : unitPrice;
+    case 'BUY_MORE_GET_FIXED_DISCOUNT':
+      return priceUnits >= from ? Math.max(0, unitPrice - value) : unitPrice;
+    default:
+      return unitPrice;
+  }
+}
+
 export function describeOffer(o: Offer, measure?: Measure | string | null): string {
   const u = measure === 'KG' ? 'kg' : 'u';
   switch (o.discountType) {
@@ -178,6 +219,88 @@ export const OFFER_STATE: Record<OfferState, { label: string; tone: Tone }> = {
   scheduled: { label: 'Programada', tone: 'info' },
   expired: { label: 'Vencida', tone: 'default' },
   inactive: { label: 'Inactiva', tone: 'danger' },
+};
+
+// ---------------------------------------------------------------- Envíos
+
+export const SHIPMENT_STATUS: Record<ShipmentStatus, { label: string; tone: Tone }> = {
+  PENDING: { label: 'Pendiente', tone: 'warning' },
+  PREPARING: { label: 'En preparación', tone: 'info' },
+  READY_FOR_PICKUP: { label: 'Listo para retirar', tone: 'violet' },
+  SHIPPED: { label: 'Despachado', tone: 'violet' },
+  OUT_FOR_DELIVERY: { label: 'En reparto', tone: 'info' },
+  FAILED_ATTEMPT: { label: 'Intento fallido', tone: 'danger' },
+  DELIVERED: { label: 'Entregado', tone: 'success' },
+  RETURNED: { label: 'Devuelto', tone: 'default' },
+  CANCELLED: { label: 'Cancelado', tone: 'danger' },
+};
+
+/** Texto del botón para pasar a cada estado (para retiro, "Entregado" = retirado). */
+export function shipmentActionLabel(to: ShipmentStatus, method: ShipmentMethod): string {
+  switch (to) {
+    case 'PREPARING':
+      return 'Empezar a preparar';
+    case 'READY_FOR_PICKUP':
+      return 'Listo para retirar';
+    case 'SHIPPED':
+      return 'Despachar';
+    case 'OUT_FOR_DELIVERY':
+      return 'Salió a reparto';
+    case 'FAILED_ATTEMPT':
+      return 'Intento fallido';
+    case 'DELIVERED':
+      return method === 'PICKUP' ? 'Marcar retirado' : 'Marcar entregado';
+    case 'RETURNED':
+      return 'Marcar devuelto';
+    case 'CANCELLED':
+      return 'Cancelar envío';
+    default:
+      return SHIPMENT_STATUS[to]?.label ?? to;
+  }
+}
+
+export const SHIPMENT_METHOD: Record<ShipmentMethod, string> = {
+  DELIVERY: 'Envío a domicilio',
+  PICKUP: 'Retiro en el local',
+};
+
+// ---------------------------------------------------------------- Reseñas
+
+export const REVIEW_STATUS: Record<ReviewStatus, { label: string; tone: Tone }> = {
+  PENDING: { label: 'Pendiente', tone: 'warning' },
+  APPROVED: { label: 'Aprobada', tone: 'success' },
+  REJECTED: { label: 'Rechazada', tone: 'danger' },
+};
+
+// ---------------------------------------------------------------- Banners
+
+/** Respaldo mientras no llega `GET /banner/placements`. */
+export const BANNER_PLACEMENT_LABEL: Record<BannerPlacement, string> = {
+  HOME_HERO: 'Portada (hero)',
+  HOME_RECOMMENDATION: 'Recomendados de la portada',
+  CATALOG_STRIP: 'Franja del catálogo',
+  ANNOUNCEMENT_BAR: 'Barra de anuncios',
+};
+
+export const BANNER_SIZE_LABEL: Record<BannerSize, string> = {
+  SQUARE: 'Cuadrado',
+  WIDE: 'Ancho',
+};
+
+export type BannerState = 'live' | 'scheduled' | 'expired' | 'inactive';
+
+export function bannerState(b: Pick<Banner, 'active' | 'startsAt' | 'endsAt'>, now = Date.now()): BannerState {
+  if (!b.active) return 'inactive';
+  if (b.startsAt && new Date(b.startsAt).getTime() > now) return 'scheduled';
+  if (b.endsAt && new Date(b.endsAt).getTime() < now) return 'expired';
+  return 'live';
+}
+
+export const BANNER_STATE: Record<BannerState, { label: string; tone: Tone }> = {
+  live: { label: 'Vigente', tone: 'success' },
+  scheduled: { label: 'Programado', tone: 'info' },
+  expired: { label: 'Vencido', tone: 'default' },
+  inactive: { label: 'Inactivo', tone: 'danger' },
 };
 
 // ---------------------------------------------------------------- Fechas

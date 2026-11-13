@@ -13,6 +13,7 @@ import { ErrorState, Skeleton } from '../components/States';
 import { useConfirm } from '../components/ConfirmProvider';
 import { AwaitingStockModal, PartialReturnModal } from '../components/orders/ItemModals';
 import { nextStatuses, useOrderStatusChange } from '../components/orders/useOrderStatusChange';
+import { OrderShipmentCard } from '../components/shipments/OrderShipmentCard';
 import { useAction } from '../hooks/useAction';
 import {
   CLOSED_ITEM_STATUSES,
@@ -305,6 +306,8 @@ export default function OrderDetail() {
         </div>
 
         <div className="space-y-6">
+          <OrderShipmentCard order={order} />
+
           <Card className="space-y-4">
             <CardTitle>Cliente y pago</CardTitle>
             <InfoRow icon={<User className="w-4 h-4" />} label="Cliente">

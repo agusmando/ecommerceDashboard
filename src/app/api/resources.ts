@@ -1,16 +1,24 @@
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { api, MAX_PAGE_SIZE, type Resource } from './baseApi';
-import type { QueryParams } from './client';
+import { toFormData, type QueryError, type QueryParams } from './client';
 import type {
+  Banner,
+  BannerFilters,
+  BannerInput,
+  BannerPlacementSpec,
   Brand,
   Cart,
   Category,
   CreateOrderInput,
+  CreateShipmentInput,
+  GoogleReview,
+  GoogleReviewsResponse,
   Id,
   ListParams,
   Movement,
   MovementFilters,
   MovementInput,
+  ModerateReviewInput,
   Offer,
   OfferFilters,
   OfferInput,
@@ -22,6 +30,15 @@ import type {
   Product,
   ProductFilters,
   ProductVariant,
+  Review,
+  ReviewFilters,
+  ReviewStats,
+  ReviewSummary,
+  Shipment,
+  ShipmentEventInput,
+  ShipmentFields,
+  ShipmentFilters,
+  ShipmentMeta,
   Supplier,
   Tag,
   UpdateOrderInput,
@@ -129,6 +146,27 @@ export const movementsApi = resourceHooks<Movement, MovementFilters, MovementInp
 export const ordersApi = resourceHooks<Order, OrderFilters, CreateOrderInput, UpdateOrderInput>('order');
 export const orderItemsApi = resourceHooks<OrderItem, OrderItemFilters>('order/item');
 export const cartsApi = resourceHooks<Cart, ListParams>('cart');
+export const shipmentsApi = resourceHooks<Shipment, ShipmentFilters, CreateShipmentInput, ShipmentFields>('shipment');
+
+// ---------------------------------------------------------------- Contenido
+
+/** Listado/detalle de reseñas (staff ve todos los estados). La moderación va por endpoints propios. */
+export const reviewsApi = resourceHooks<Review, ReviewFilters & ListParams>('review');
+
+/** Listado y activar/desactivar de banners. Alta/edición son multipart (ver abajo). */
+export const bannersApi = resourceHooks<Banner, BannerFilters>('banner');
+
+/** Campos de texto + archivos `desktopImage` / `mobileImage` como multipart. */
+function bannerFormData({ desktopImage, mobileImage, removeDesktopImage, removeMobileImage, ...fields }: BannerInput) {
+  const fd = toFormData({
+    ...fields,
+    removeDesktopImage: removeDesktopImage || undefined,
+    removeMobileImage: removeMobileImage || undefined,
+  });
+  if (desktopImage) fd.append('desktopImage', desktopImage);
+  if (mobileImage) fd.append('mobileImage', mobileImage);
+  return fd;
+}
 
 // ---------------------------------------------------------------- Endpoints especiales
 
@@ -164,6 +202,102 @@ const extended = api.injectEndpoints({
       invalidatesTags: (_r, e) => (e ? [] : ['Variant', 'Product', 'Movement', 'Offer']),
     }),
 
+    // ------------------------------------------------------------ Envíos
+
+    /** Estados, métodos y transiciones válidas. Casi estático: se cachea un buen rato. */
+    shipmentMeta: build.query<ShipmentMeta, void>({
+      query: () => ({ url: '/shipment/meta' }),
+      keepUnusedDataFor: 3600,
+    }),
+
+    /** Envío de una orden; `null` si la orden todavía no tiene (el backend responde 404). */
+    shipmentByOrder: build.query<Shipment | null, Id>({
+      queryFn: async (orderId, _api, _extra, baseQuery) => {
+        const res = await baseQuery({ url: `/shipment/order/${orderId}` });
+        if (res.error) {
+          const err = res.error as QueryError;
+          return err.status === 404 ? { data: null } : { error: err };
+        }
+        return { data: res.data as Shipment };
+      },
+      providesTags: (r) => (r ? [{ type: 'Shipment', id: r.id }, 'Shipment'] : ['Shipment']),
+    }),
+
+    /** Cambio de estado + evento en la línea de tiempo. Puede mover la orden a SHIPPED/DELIVERED. */
+    addShipmentEvent: build.mutation<Shipment, { id: Id; body: ShipmentEventInput }>({
+      query: ({ id, body }) => ({ url: `/shipment/${id}/events`, method: 'POST', data: body }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Shipment', 'Order']),
+    }),
+
+    // ------------------------------------------------------------ Reseñas
+
+    reviewStats: build.query<ReviewStats, void>({
+      query: () => ({ url: '/review/stats' }),
+      providesTags: ['Review'],
+    }),
+
+    reviewSummary: build.query<ReviewSummary, Id>({
+      query: (productId) => ({ url: '/review/summary', params: { productId } }),
+      providesTags: ['Review'],
+    }),
+
+    moderateReview: build.mutation<Review, { id: Id; body: ModerateReviewInput }>({
+      query: ({ id, body }) => ({ url: `/review/${id}/moderate`, method: 'PUT', data: body }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Review']),
+    }),
+
+    deleteReview: build.mutation<void, Id>({
+      query: (id) => ({ url: `/review/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Review']),
+    }),
+
+    // ------------------------------------------------------------ Reseñas de Google
+
+    googleReviews: build.query<GoogleReviewsResponse, void>({
+      query: () => ({ url: '/google-review/all' }),
+      providesTags: ['GoogleReview'],
+    }),
+
+    syncGoogleReviews: build.mutation<GoogleReviewsResponse & { synced: number }, void>({
+      query: () => ({ url: '/google-review/sync', method: 'POST' }),
+      // Aun si falla, el backend guarda `lastError`: conviene refrescar el resumen.
+      invalidatesTags: ['GoogleReview'],
+    }),
+
+    updateGoogleReview: build.mutation<GoogleReview, { id: Id; body: { featured?: boolean; active?: boolean } }>({
+      query: ({ id, body }) => ({ url: `/google-review/${id}`, method: 'PUT', data: body }),
+      invalidatesTags: (_r, e) => (e ? [] : ['GoogleReview']),
+    }),
+
+    // ------------------------------------------------------------ Banners
+
+    bannerPlacements: build.query<BannerPlacementSpec[], void>({
+      query: () => ({ url: '/banner/placements' }),
+      keepUnusedDataFor: 3600,
+    }),
+
+    createBanner: build.mutation<Banner, BannerInput>({
+      query: (input) => ({ url: '/banner', method: 'POST', data: bannerFormData(input) }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Banner']),
+    }),
+
+    updateBanner: build.mutation<Banner, { id: Id; body: BannerInput }>({
+      query: ({ id, body }) => ({ url: `/banner/${id}`, method: 'PUT', data: bannerFormData(body) }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Banner']),
+    }),
+
+    /** Nuevo orden dentro de una ubicación (position = índice). */
+    reorderBanners: build.mutation<Banner[], Id[]>({
+      query: (ids) => ({ url: '/banner/reorder', method: 'PUT', data: { ids } }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Banner']),
+    }),
+
+    /** Baja física (también borra las imágenes de Cloudinary). */
+    deleteBanner: build.mutation<void, Id>({
+      query: (id) => ({ url: `/banner/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Banner']),
+    }),
+
     health: build.query<{ status: string; latencyMs: number }, void>({
       queryFn: async (_arg, _api, _extra, baseQuery) => {
         const t0 = performance.now();
@@ -176,7 +310,26 @@ const extended = api.injectEndpoints({
   }),
 });
 
-export const { useCreateProductMutation, useUpdateVariantMutation, useHealthQuery } = extended;
+export const {
+  useCreateProductMutation,
+  useUpdateVariantMutation,
+  useHealthQuery,
+  useShipmentMetaQuery,
+  useShipmentByOrderQuery,
+  useAddShipmentEventMutation,
+  useReviewStatsQuery,
+  useReviewSummaryQuery,
+  useModerateReviewMutation,
+  useDeleteReviewMutation,
+  useGoogleReviewsQuery,
+  useSyncGoogleReviewsMutation,
+  useUpdateGoogleReviewMutation,
+  useBannerPlacementsQuery,
+  useCreateBannerMutation,
+  useUpdateBannerMutation,
+  useReorderBannersMutation,
+  useDeleteBannerMutation,
+} = extended;
 
 /** Hasta 100 por página es el máximo que acepta el backend. */
 export const ALL = { amountPerPage: MAX_PAGE_SIZE } as const;

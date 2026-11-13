@@ -31,6 +31,10 @@ export const TAG_TYPES = [
   'OrderItem',
   'Cart',
   'Me',
+  'Shipment',
+  'Review',
+  'GoogleReview',
+  'Banner',
 ] as const;
 export type TagType = (typeof TAG_TYPES)[number];
 
@@ -45,7 +49,10 @@ export type Resource =
   | 'movement'
   | 'order'
   | 'order/item'
-  | 'cart';
+  | 'cart'
+  | 'shipment'
+  | 'review'
+  | 'banner';
 
 export const RESOURCE_TAG: Record<Resource, TagType> = {
   category: 'Category',
@@ -59,6 +66,9 @@ export const RESOURCE_TAG: Record<Resource, TagType> = {
   order: 'Order',
   'order/item': 'OrderItem',
   cart: 'Cart',
+  shipment: 'Shipment',
+  review: 'Review',
+  banner: 'Banner',
 };
 
 /** Qué otras vistas quedan desactualizadas cuando cambia un recurso. */
@@ -71,9 +81,13 @@ export const AFFECTS: Record<Resource, TagType[]> = {
   'product/variant': ['Variant', 'Product', 'Movement', 'Offer'],
   offer: ['Offer', 'Product', 'Variant'],
   movement: ['Movement', 'Variant', 'Product'],
-  order: ['Order', 'OrderItem', 'Variant', 'Product', 'Movement'],
+  order: ['Order', 'OrderItem', 'Variant', 'Product', 'Movement', 'Shipment'],
   'order/item': ['OrderItem', 'Order'],
   cart: ['Cart'],
+  // Un cambio de envío puede mover el estado de la orden (SHIPPED / DELIVERED).
+  shipment: ['Shipment', 'Order'],
+  review: ['Review'],
+  banner: ['Banner'],
 };
 
 export const MAX_PAGE_SIZE = 100;
