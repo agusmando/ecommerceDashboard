@@ -1,1130 +1,319 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { DashboardLayout } from "../layouts/DashboardLayout";
-import { Card } from "../components/Card";
-import {
-  SortableTable,
-  ColumnDef,
-} from "../components/SortableTable";
-import { Badge } from "../components/Badge";
-import { Button } from "../components/Button";
-import { Input } from "../components/Input";
-import { Select } from "../components/Select";
-import { Modal } from "../components/Modal";
-import { Switch } from "../components/ui/switch";
-import { Label } from "../components/ui/label";
-import { Autocomplete } from "../components/Autocomplete";
-import { ConfirmDialog } from "../components/ConfirmDialog";
-import { VariantSelector } from "../components/VariantSelector";
-import { ProductEditForm } from "../components/ProductEditForm";
-import {
-  mockProducts,
-  mockBrands,
-  mockCategories,
-  mockTags,
-} from "../data/mockData";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  X,
-  Upload,
-  PackagePlus,
-} from "lucide-react";
-import type { Product } from "../types";
-import { toast } from "sonner";
-import BaseService from "../service/baseService";
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { Eye, LayoutGrid, List, Package, Plus, Power, PowerOff } from 'lucide-react';
+import { productsApi } from '../api/resources';
+import type { Product, ProductVariant } from '../api/types';
+import { useListFilters } from '../hooks/useListFilters';
+import { useActiveToggle } from '../hooks/useActiveToggle';
+import { formatQty, priceUnit, stockLevel, type Tone } from '../lib/domain';
+import { cn, formatCurrency } from '../lib/utils';
+import { PageHeader } from '../components/PageHeader';
+import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { DataTable, type Column } from '../components/DataTable';
+import { ActiveFilter, FilterBar, FilterSelect, SearchInput, Segmented } from '../components/Filters';
+import { MultiSelect } from '../components/Pickers';
+import { ActiveBadge, Badge } from '../components/Badge';
+import { RowActions } from '../components/RowActions';
+import { EmptyState, ErrorState, Skeleton } from '../components/States';
+import { Pagination } from '../components/Pagination';
+import { useBrandOptions, useCategoryOptions, useTagOptions } from '../components/CatalogPickers';
+import { CreateProductModal } from '../components/products/CreateProductModal';
 
-const UNITS = [
-  { value: "u", label: "Unidad (u)" },
-  { value: "kg", label: "Kilogramo (kg)" },
-  { value: "g", label: "Gramo (g)" },
-  { value: "l", label: "Litro (l)" },
-  { value: "ml", label: "Mililitro (ml)" },
-];
+const DEFAULTS = {
+  name: '',
+  category: '',
+  brand: '',
+  tags: [] as string[],
+  variants: '',
+  active: '' as '' | 'true' | 'false',
+};
 
-interface VariantItem {
-  variantId: string;
-  variantName: string;
-  productName: string;
-  unit: string;
-  quantity: number;
-  price?: number;
+// ---------------------------------------------------------------- Resúmenes por producto
+
+const TONE_RANK: Record<Tone, number> = { danger: 3, warning: 2, success: 1, info: 0, default: 0, violet: 0 };
+
+export function productSummary(p: Product) {
+  const variants = (p.variants ?? []).filter((v) => v.active);
+  const prices = variants.map((v) => v.finalPrice ?? 0).filter((n) => n > 0);
+  const min = prices.length ? Math.min(...prices) : 0;
+  const max = prices.length ? Math.max(...prices) : 0;
+  const stock = variants.reduce((s, v) => s + (v.currentStock || 0), 0);
+  const worst = variants.reduce<ReturnType<typeof stockLevel> | null>((acc, v) => {
+    const l = stockLevel(v);
+    return !acc || TONE_RANK[l.tone] > TONE_RANK[acc.tone] ? l : acc;
+  }, null);
+  const measure = variants[0]?.contentMeasure ?? p.measure;
+  return { variants, min, max, stock, worst, measure };
 }
 
-const productService = new BaseService<Product>("product");
+function PriceRange({ p }: { p: Product }) {
+  const { min, max, measure } = productSummary(p);
+  if (!min) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="tabular-nums">
+      {formatCurrency(min)}
+      {max !== min && <> – {formatCurrency(max)}</>}
+      <span className="text-xs text-muted-foreground">{priceUnit(measure)}</span>
+    </span>
+  );
+}
+
+function StockCell({ p }: { p: Product }) {
+  const { stock, worst, measure, variants } = productSummary(p);
+  if (!variants.length) return <span className="text-xs text-muted-foreground">Sin variantes activas</span>;
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <span className="tabular-nums">{formatQty(stock, measure)}</span>
+      {worst && worst.tone !== 'success' && <Badge tone={worst.tone}>{worst.label}</Badge>}
+    </div>
+  );
+}
+
+function TagChips({ p, max = 3 }: { p: Product; max?: number }) {
+  const tags = p.Tags ?? [];
+  if (!tags.length) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.slice(0, max).map((t) => (
+        <span key={t.id} className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+          {t.name}
+        </span>
+      ))}
+      {tags.length > max && <span className="text-xs text-muted-foreground">+{tags.length - max}</span>}
+    </div>
+  );
+}
+
+function firstImage(p: Product): string | undefined {
+  return (p.variants ?? []).flatMap((v: ProductVariant) => v.images ?? [])[0]?.secure_url;
+}
+
+// ---------------------------------------------------------------- Página
 
 export default function Products() {
   const navigate = useNavigate();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBulkStockModalOpen, setIsBulkStockModalOpen] =
-    useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentId, setCurrentId] = useState<number>(0);
-  const [confirmDelete, setConfirmDelete] = useState<
-    string | null
-  >(null);
-  const [confirmCancelStock, setConfirmCancelStock] =
-    useState(false);
+  const [creating, setCreating] = useState(false);
+  const [view, setView] = useState<'table' | 'grid'>('table');
 
-  // Filter states
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [filterBrand, setFilterBrand] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const f = useListFilters('products', DEFAULTS, { textKeys: ['name', 'variants'] });
+  const { values, debounced } = f;
 
-  // Bulk stock state
-  const [stockVariants, setStockVariants] = useState<
-    VariantItem[]
-  >([]);
-
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    brandId: 0,
-    categoryId: 0,
-    description: "",
-    active: false,
-    tags: [] as string[],
-    unit: "u",
-
-    // Initial variant data for creation
-    variantName: "Estándar",
-    variantPrice: "",
-    variantStock: "",
-    variantProfitMargin: "",
-    variantUnit: "u",
-    variantRequestTime: "",
-    variantImages: [] as string[],
-    variantContentAmount: "",
-    variantPackagingOptions: ["", "", ""], // Up to 3 packaging options
-    variantRoundingOption: "none" as
-      | "none"
-      | "tens"
-      | "hundreds",
-    isMix: false,
-    mixComponents: [] as {
-      variantId: string;
-      variantName: string;
-      quantity: number;
-    }[],
+  const query = productsApi.usePage({
+    name: debounced.name,
+    category: debounced.category,
+    brand: debounced.brand,
+    tags: debounced.tags,
+    variants: debounced.variants,
+    active: debounced.active === '' ? '' : debounced.active === 'true',
+    detalle: true,
+    currentPage: debounced.page,
+    amountPerPage: debounced.pageSize,
   });
 
-  const [productList, setProductList] = useState<
-    Product[] | []
-  >([]);
+  const [setActive] = productsApi.useSetActive();
+  const toggle = useActiveToggle(setActive, 'el producto');
 
-  const handleCreate = () => {
-    setIsEditing(false);
-    setCurrentId(null);
-    setFormData({
-      name: "",
-      brandId: mockBrands[0]?.id || "",
-      categoryId: mockCategories[0]?.id || "",
-      description: "",
-      status: "activo",
-      tags: [],
-      unit: "u",
-      variantName: "Estándar",
-      variantPrice: "",
-      variantStock: "",
-      variantProfitMargin: "",
-      variantUnit: "u",
-      variantRequestTime: "",
-      variantImages: [],
-      variantContentAmount: "",
-      variantPackagingOptions: ["", "", ""],
-      variantRoundingOption: "none",
-      isMix: false,
-      mixComponents: [],
-    });
-    setIsModalOpen(true);
-  };
+  const categories = useCategoryOptions();
+  const brands = useBrandOptions();
+  const tags = useTagOptions();
+  const byName = (rows?: { name: string }[]) =>
+    (rows ?? []).map((r) => ({ value: r.name, label: r.name })).sort((a, b) => a.label.localeCompare(b.label));
+  const categoryOptions = useMemo(() => byName(categories.rows), [categories.rows]);
+  const brandOptions = useMemo(() => byName(brands.rows), [brands.rows]);
+  const tagOptions = useMemo(() => byName(tags.rows), [tags.rows]);
 
-  const handleEdit = (product: Product) => {
-    setIsEditing(true);
-    setCurrentId(product.id);
-    setFormData({
-      name: product.name,
-      brandId: product.brandId,
-      categoryId: product.categoryId,
-      description: product.description,
-      active: product.active,
-      tags: product.tags || [],
-      unit: product.unit || "u",
-      // We don't populate variant fields for edit main product modal
-      variantName: "",
-      variantPrice: "",
-      variantStock: "",
-      variantProfitMargin: "",
-      variantUnit: "u",
-      variantRequestTime: "",
-      variantImages: [],
-      variantContentAmount: "",
-      variantPackagingOptions: ["", "", ""],
-      variantRoundingOption: "none",
-      isMix: false,
-      mixComponents: [],
-    });
-    setIsModalOpen(true);
-  };
+  const rows = query.data?.content;
+  const open = (p: Product) => navigate(`/dashboard/products/${p.id}`);
 
-  const handleSubmit = () => {
-    // Validate
-    if (
-      !formData.name ||
-      !formData.brandId ||
-      !formData.categoryId
-    )
-      return;
-
-    // For creation, validate variant
-    if (!isEditing) {
-      if (!formData.variantPrice || !formData.variantStock) {
-        toast.error(
-          "Debe agregar al menos una variante inicial (precio, stock)",
-        );
-        return;
-      }
-    }
-
-    console.log("Submitting:", { id: currentId, ...formData });
-    toast.success(
-      isEditing
-        ? "Producto actualizado correctamente"
-        : "Producto creado correctamente",
-    );
-    setIsModalOpen(false);
-  };
-
-  const handleBulkStockSubmit = () => {
-    if (stockVariants.length === 0) {
-      toast.error("Debe seleccionar al menos una variante");
-      return;
-    }
-
-    const invalidVariants = stockVariants.filter(
-      (v) =>
-        !v.quantity ||
-        !v.price ||
-        v.quantity <= 0 ||
-        v.price <= 0,
-    );
-    if (invalidVariants.length > 0) {
-      toast.error(
-        "Todas las variantes deben tener cantidad y precio válidos",
-      );
-      return;
-    }
-
-    console.log("Submitting bulk stock:", stockVariants);
-    toast.success(
-      `Stock agregado correctamente a ${stockVariants.length} variante${stockVariants.length > 1 ? "s" : ""}`,
-    );
-    setIsBulkStockModalOpen(false);
-    setStockVariants([]);
-  };
-
-  const handleCancelBulkStock = () => {
-    if (stockVariants.length > 0) {
-      setConfirmCancelStock(true);
-    } else {
-      setIsBulkStockModalOpen(false);
-    }
-  };
-
-  // Filter products logic
-  const filteredProducts = productList.filter(
-    (product: Product) => {
-      if (
-        filterCategory !== "all" &&
-        product.Category.name !== filterCategory
-      )
-        return false;
-      if (
-        filterBrand !== "all" &&
-        product.Brand.name !== filterBrand
-      )
-        return false;
-      if (
-        filterStatus !== "all" &&
-        product.active !== filterStatus
-      )
-        return false;
-      if (
-        searchQuery &&
-        !product.name
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase())
-      )
-        return false;
-      return true;
-    },
-  );
-
-  const getStatusBadge = (active: boolean) => {
-    return active ? (
-      <Badge variant="success">Activo</Badge>
-    ) : (
-      <Badge variant="default">Inactivo</Badge>
-    );
-  };
-
-  const getTotalStock = (product: Product) => {
-    return product.variants.reduce(
-      (sum, v) => sum + v.currentStock,
-      0,
-    );
-  };
-
-  const getBrandName = (brandId: string) => {
-    return (
-      mockBrands.find((b) => b.id === brandId)?.name || "-"
-    );
-  };
-
-  const getCategoryName = (categoryId: string) => {
-    return (
-      mockCategories.find((c) => c.id === categoryId)?.name ||
-      "-"
-    );
-  };
-
-  // Define columns for sortable table
-  const columns: ColumnDef<Product>[] = [
+  const actionsFor = (p: Product) => [
+    { label: 'Ver detalle', icon: <Eye className="w-4 h-4" />, onClick: () => open(p) },
     {
-      key: "name",
-      label: "Nombre",
-      sortable: true,
-    },
-    {
-      key: "Brand",
-      label: "Marca",
-      sortable: true,
-      render: (product) => product.Brand.name,
-    },
-    {
-      key: "categoryId",
-      label: "Categoría",
-      sortable: true,
-      render: (product) => product.Category.name,
-    },
-    {
-      key: "variants",
-      label: "Variantes",
-      align: "center",
-      sortable: true,
-      render: (product) => product.variants.length,
-    },
-    {
-      key: "stock",
-      label: "Stock Total",
-      align: "center",
-      sortable: true,
-      render: (product) => {
-        const totalStock = getTotalStock(product);
-        return (
-          <Badge
-            variant={totalStock < 50 ? "warning" : "success"}
-          >
-            {totalStock}
-          </Badge>
-        );
-      },
-    },
-    {
-      key: "status",
-      label: "Estado",
-      sortable: true,
-      render: (product) => getStatusBadge(product.active),
-    },
-    {
-      key: "actions",
-      label: "Acciones",
-      align: "right",
-      render: (product) => (
-        <div
-          className="flex justify-end gap-2"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(product);
-            }}
-            tooltip="Editar Producto"
-          >
-            <Edit className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            tooltip="Eliminar Producto"
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDelete(product.id);
-            }}
-          >
-            <Trash2 className="w-4 h-4 text-destructive" />
-          </Button>
-        </div>
-      ),
+      label: p.active ? 'Desactivar' : 'Activar',
+      icon: p.active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />,
+      onClick: () => toggle(p.id, p.name, p.active),
+      danger: p.active,
+      separator: true,
     },
   ];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await productService.get({
-          detalle: true,
-          paginate: true,
-        });
-        console.log(response);
-        if (response) setProductList(response.response.content);
-      } catch (err) {}
-    };
+  const columns: Column<Product>[] = [
+    {
+      key: 'name',
+      header: 'Producto',
+      cell: (p) => (
+        <div className="min-w-0 max-w-xs">
+          <div className="font-medium text-foreground truncate">{p.name}</div>
+          {p.description && <div className="text-xs text-muted-foreground truncate">{p.description}</div>}
+        </div>
+      ),
+    },
+    { key: 'category', header: 'Categoría', hideOnMobile: true, cell: (p) => p.Category?.name ?? '—' },
+    { key: 'brand', header: 'Marca', hideOnMobile: true, cell: (p) => p.Brand?.name ?? '—' },
+    { key: 'tags', header: 'Etiquetas', hideOnMobile: true, cell: (p) => <TagChips p={p} /> },
+    {
+      key: 'variants',
+      header: 'Variantes',
+      align: 'center',
+      cell: (p) => <span className="tabular-nums">{p.variants?.length ?? 0}</span>,
+    },
+    { key: 'price', header: 'Precio', cell: (p) => <PriceRange p={p} /> },
+    { key: 'stock', header: 'Stock', cell: (p) => <StockCell p={p} /> },
+    { key: 'active', header: 'Estado', cell: (p) => <ActiveBadge active={p.active} /> },
+    { key: 'actions', header: '', align: 'right', cell: (p) => <RowActions actions={actionsFor(p)} /> },
+  ];
 
-    fetchData();
-  }, []);
+  const pagination = {
+    info: query.data?.pagination,
+    page: values.page,
+    pageSize: values.pageSize,
+    onPageChange: f.setPage,
+    onPageSizeChange: f.setPageSize,
+  };
+
+  const toolbar = (
+    <FilterBar
+      activeCount={f.activeCount}
+      onReset={f.reset}
+      right={
+        <Segmented
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'table', label: <List className="w-4 h-4" aria-label="Tabla" /> },
+            { value: 'grid', label: <LayoutGrid className="w-4 h-4" aria-label="Tarjetas" /> },
+          ]}
+        />
+      }
+    >
+      <SearchInput value={values.name} onChange={(name) => f.set({ name })} placeholder="Buscar por nombre…" />
+      <FilterSelect value={values.category} onChange={(category) => f.set({ category })} options={categoryOptions} placeholder="Todas las categorías" />
+      <FilterSelect value={values.brand} onChange={(brand) => f.set({ brand })} options={brandOptions} placeholder="Todas las marcas" />
+      <MultiSelect
+        className="h-9 min-h-9 w-full sm:w-56 py-1"
+        value={values.tags}
+        onChange={(t) => f.set({ tags: t as string[] })}
+        options={tagOptions}
+        placeholder="Etiquetas"
+        searchPlaceholder="Buscar etiqueta…"
+      />
+      <SearchInput className="sm:w-48" value={values.variants} onChange={(variants) => f.set({ variants })} placeholder="Variante…" />
+      <ActiveFilter value={values.active} onChange={(active) => f.set({ active })} />
+    </FilterBar>
+  );
+
+  const empty = {
+    icon: <Package className="w-6 h-6" />,
+    title: f.activeCount ? 'Ningún producto coincide con los filtros' : 'Todavía no hay productos',
+    description: f.activeCount ? 'Probá con otros filtros.' : 'Creá el primero para empezar a vender.',
+    action: f.activeCount ? (
+      <Button variant="outline" size="sm" onClick={f.reset}>
+        Limpiar filtros
+      </Button>
+    ) : (
+      <Button size="sm" onClick={() => setCreating(true)}>
+        <Plus className="w-4 h-4" /> Nuevo producto
+      </Button>
+    ),
+  };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-foreground mb-1">Productos</h1>
-            <p className="text-sm text-muted-foreground">
-              Gestioná tu catálogo de productos
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsBulkStockModalOpen(true)}
-            >
-              <PackagePlus className="w-5 h-5 mr-2" />
-              Carga Masiva de Stock
-            </Button>
-            <Button onClick={handleCreate}>
-              <Plus className="w-5 h-5 mr-2" />
-              Crear Producto
-            </Button>
-          </div>
-        </div>
+    <>
+      <PageHeader
+        title="Productos"
+        description={
+          query.data ? `${query.data.pagination.totalAmount} productos en el catálogo` : 'Catálogo de productos y sus variantes'
+        }
+        actions={
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="w-4 h-4" /> Nuevo producto
+          </Button>
+        }
+      />
 
-        <Card>
-          {/* Filters */}
-          <div className="p-4 border-b border-border">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Input
-                placeholder="Buscar productos..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <Select
-                value={filterCategory}
-                onChange={(e) =>
-                  setFilterCategory(e.target.value)
-                }
-                options={[
-                  {
-                    value: "all",
-                    label: "Todas las Categorías",
-                  },
-                  ...mockCategories.map((c) => ({
-                    value: c.id,
-                    label: c.name,
-                  })),
-                ]}
-              />
-              <Select
-                value={filterBrand}
-                onChange={(e) => setFilterBrand(e.target.value)}
-                options={[
-                  { value: "all", label: "Todas las Marcas" },
-                  ...mockBrands.map((b) => ({
-                    value: b.id,
-                    label: b.name,
-                  })),
-                ]}
-              />
-              <Select
-                value={filterStatus}
-                onChange={(e) =>
-                  setFilterStatus(e.target.value)
-                }
-                options={[
-                  { value: "all", label: "Todos" },
-                  { value: "activo", label: "Activo" },
-                  { value: "inactivo", label: "Inactivo" },
-                ]}
-              />
-            </div>
-          </div>
-
-          {/* Table */}
-          <SortableTable
-            data={filteredProducts}
-            columns={columns}
-            onRowClick={(product) =>
-              navigate(`/dashboard/products/${product.id}`)
-            }
-            getRowKey={(product) => product.id}
-            emptyMessage="No se encontraron productos"
-          />
-        </Card>
-
-        {/* Bulk Stock Modal */}
-        <Modal
-          isOpen={isBulkStockModalOpen}
-          onClose={handleCancelBulkStock}
-          title="Carga Masiva de Stock"
-          size="lg"
-          footer={
-            <>
-              <Button
-                variant="ghost"
-                onClick={handleCancelBulkStock}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleBulkStockSubmit}>
-                Agregar Stock
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Seleccione las variantes y defina la cantidad y
-              precio de compra para cada una.
-            </p>
-            <VariantSelector
-              selectedVariants={stockVariants}
-              onVariantsChange={setStockVariants}
-              showPrice={true}
-              priceLabel="Precio Compra"
-              quantityLabel="Cantidad"
-              searchPlaceholder="Buscar variante por nombre..."
-              label="Buscar variante"
-            />
-          </div>
-        </Modal>
-
-        {/* Confirm Cancel Stock Dialog */}
-        <ConfirmDialog
-          isOpen={confirmCancelStock}
-          onClose={() => setConfirmCancelStock(false)}
-          onConfirm={() => {
-            setIsBulkStockModalOpen(false);
-            setStockVariants([]);
-            setConfirmCancelStock(false);
-            toast.info("Carga de stock cancelada");
-          }}
-          title="Cancelar Carga de Stock"
-          message="¿Estás seguro de que deseas cancelar? Se perderán todos los datos ingresados."
-          confirmText="Sí, cancelar"
-          cancelText="Volver"
+      {view === 'table' ? (
+        <DataTable
+          toolbar={toolbar}
+          columns={columns}
+          rows={rows}
+          rowKey={(p) => p.id}
+          loading={query.isLoading}
+          fetching={query.isFetching}
+          error={query.error}
+          onRetry={query.refetch}
+          onRowClick={open}
+          rowClassName={(p) => (p.active ? undefined : 'opacity-60')}
+          empty={empty}
+          pagination={pagination}
         />
-
-        {/* Create/Edit Modal */}
-        <Modal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          title={
-            isEditing
-              ? "Editar Producto"
-              : "Crear Nuevo Producto"
-          }
-          size="lg"
-          footer={
-            <>
-              <Button
-                variant="ghost"
-                onClick={() => setIsModalOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleSubmit}>
-                {isEditing ? "Guardar" : "Crear"}
-              </Button>
-            </>
-          }
-        >
-          {isEditing ? (
-            <ProductEditForm
-              product={
-                mockProducts.find((p) => p.id === currentId)!
-              }
-            />
+      ) : (
+        <div className="space-y-4">
+          <Card className="p-3 sm:p-4">{toolbar}</Card>
+          {query.isLoading && !rows ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-64 rounded-xl" />
+              ))}
+            </div>
+          ) : query.error && !rows ? (
+            <Card>
+              <ErrorState error={query.error} onRetry={query.refetch} />
+            </Card>
+          ) : !rows?.length ? (
+            <Card>
+              <EmptyState {...empty} />
+            </Card>
           ) : (
-            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-              {/* General Information */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-                  Información General
-                </h3>
-                <Input
-                  label="Nombre del Producto"
-                  placeholder="Ingresar nombre del producto"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      name: e.target.value,
-                    })
-                  }
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <Select
-                    label="Marca"
-                    options={mockBrands
-                      .filter(
-                        (b) =>
-                          b.status === "activo" ||
-                          b.status === "active",
-                      )
-                      .map((b) => ({
-                        value: b.id,
-                        label: b.name,
-                      }))}
-                    value={formData.brandId}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        brandId: e.target.value,
-                      })
-                    }
-                  />
-                  <Select
-                    label="Categoría"
-                    options={mockCategories.map((c) => ({
-                      value: c.id,
-                      label: c.name,
-                    }))}
-                    value={formData.categoryId}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        categoryId: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Select
-                    label="Unidad de Medida (Base)"
-                    options={UNITS}
-                    value={formData.unit}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        unit: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label className="mb-2 block">
-                    Etiquetas
-                  </Label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Busque y seleccione las etiquetas que desee
-                    aplicar
-                  </p>
-                  <Autocomplete
-                    items={mockTags.map((tag) => ({
-                      id: tag.id,
-                      label: tag.name,
-                    }))}
-                    selectedIds={formData.tags}
-                    onSelectionChange={(ids) =>
-                      setFormData({ ...formData, tags: ids })
-                    }
-                    placeholder="Buscar etiquetas..."
-                    showBadges={true}
-                    multiSelect={true}
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-1.5 text-foreground">
-                    Descripción
-                  </label>
-                  <textarea
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                    rows={3}
-                    placeholder="Ingresar la descripción del producto"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        description: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label className="text-foreground">
-                    Estado
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={formData.status === "activo"}
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          status: checked
-                            ? "activo"
-                            : "inactivo",
-                        })
-                      }
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {formData.status === "activo"
-                        ? "Activo"
-                        : "Inactivo"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Initial Variant (Only for create) */}
-              <div className="border-t border-border pt-6">
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
-                  Variante Inicial
-                </h3>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <Input
-                    label="Nombre Variante"
-                    placeholder="ej: Estándar, Chocolate, Lata"
-                    value={formData.variantName}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        variantName: e.target.value,
-                      })
-                    }
-                  />
-                  <Select
-                    label="Unidad (Variante)"
-                    options={UNITS}
-                    value={formData.variantUnit}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        variantUnit: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <Input
-                    label="Stock Inicial"
-                    type="number"
-                    placeholder="0"
-                    value={formData.variantStock}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        variantStock: e.target.value,
-                      })
-                    }
-                  />
-                  <Input
-                    label="Contenido (ej: 90ml)"
-                    type="number"
-                    placeholder="Opcional"
-                    value={formData.variantContentAmount}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        variantContentAmount: e.target.value,
-                      })
-                    }
-                  />
-                  <Input
-                    label="Tiempo Pedido (días)"
-                    type="number"
-                    placeholder="Opcional"
-                    value={formData.variantRequestTime}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        variantRequestTime: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <Input
-                    label="Precio Compra ($)"
-                    type="number"
-                    placeholder="0.00"
-                    value={formData.variantPrice}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        variantPrice: e.target.value,
-                      })
-                    }
-                  />
-                  <Input
-                    label="Margen de Ganancia (%)"
-                    type="number"
-                    placeholder="Ej: 30"
-                    value={formData.variantProfitMargin}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        variantProfitMargin: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                {/* Packaging Options for bulk products */}
-                {(formData.variantUnit === "kg" ||
-                  formData.variantUnit === "g") && (
-                  <div className="mb-4 bg-muted/30 p-4 rounded-lg border border-border">
-                    <Label className="mb-2 block">
-                      Opciones de Empaque (Producto a granel)
-                    </Label>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Ingrese hasta 3 opciones de empaque para
-                      este producto a granel
-                    </p>
-                    <div className="grid grid-cols-3 gap-3">
-                      <Input
-                        placeholder="ej: 100"
-                        type="number"
-                        value={
-                          formData.variantPackagingOptions[0]
-                        }
-                        onChange={(e) => {
-                          const newOptions = [
-                            ...formData.variantPackagingOptions,
-                          ];
-                          newOptions[0] = e.target.value;
-                          setFormData({
-                            ...formData,
-                            variantPackagingOptions: newOptions,
-                          });
-                        }}
-                      />
-                      <Input
-                        placeholder="ej: 250"
-                        type="number"
-                        value={
-                          formData.variantPackagingOptions[1]
-                        }
-                        onChange={(e) => {
-                          const newOptions = [
-                            ...formData.variantPackagingOptions,
-                          ];
-                          newOptions[1] = e.target.value;
-                          setFormData({
-                            ...formData,
-                            variantPackagingOptions: newOptions,
-                          });
-                        }}
-                      />
-                      <Input
-                        placeholder="ej: 500"
-                        type="number"
-                        value={
-                          formData.variantPackagingOptions[2]
-                        }
-                        onChange={(e) => {
-                          const newOptions = [
-                            ...formData.variantPackagingOptions,
-                          ];
-                          newOptions[2] = e.target.value;
-                          setFormData({
-                            ...formData,
-                            variantPackagingOptions: newOptions,
-                          });
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Rounding Option */}
-                <div className="mb-4">
-                  <Label className="mb-2 block">
-                    Redondeo de Precios
-                  </Label>
-                  <Select
-                    options={[
-                      { value: "none", label: "Sin redondeo" },
-                      {
-                        value: "tens",
-                        label: "Redondear a la decena",
-                      },
-                      {
-                        value: "hundreds",
-                        label: "Redondear a la centena",
-                      },
-                    ]}
-                    value={formData.variantRoundingOption}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        variantRoundingOption: e.target
-                          .value as
-                          | "none"
-                          | "tens"
-                          | "hundreds",
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <Label className="mb-2 block">
-                    Imágenes de variante
-                  </Label>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    id="variant-images"
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (files) {
-                        // In a real app, you would upload these files and get URLs
-                        const newImages = Array.from(files).map(
-                          (f) => URL.createObjectURL(f),
-                        );
-                        setFormData((prev) => ({
-                          ...prev,
-                          variantImages: [
-                            ...prev.variantImages,
-                            ...newImages,
-                          ],
-                        }));
-                      }
-                    }}
-                  />
-                  <label htmlFor="variant-images">
-                    <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
-                      <Upload className="w-8 h-8 mb-2" />
-                      <span className="text-xs">
-                        Haga clic para subir imágenes
-                        (múltiples)
-                      </span>
-                    </div>
-                  </label>
-                  {formData.variantImages.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {formData.variantImages.map(
-                        (img, idx) => (
-                          <div
-                            key={idx}
-                            className="relative w-20 h-20 rounded-lg overflow-hidden border border-border"
-                          >
-                            <img
-                              src={img}
-                              alt={`Imagen ${idx + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  variantImages:
-                                    prev.variantImages.filter(
-                                      (_, i) => i !== idx,
-                                    ),
-                                }));
-                              }}
-                              className="absolute top-0 right-0 bg-destructive text-destructive-foreground p-1 rounded-bl-lg"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Mix Configuration */}
-                <div className="bg-muted/30 p-4 rounded-lg border border-border">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <Label className="text-foreground">
-                        ¿Es un Mix?
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Permite componer este producto de otros
-                        productos existentes
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.isMix}
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          isMix: checked,
-                        })
-                      }
-                    />
-                  </div>
-
-                  {formData.isMix && (
-                    <div className="mt-4 space-y-3">
-                      <div>
-                        <Label className="mb-2 block">
-                          Buscar variante por nombre
-                        </Label>
-                        <Autocomplete
-                          items={mockProducts
-                            .flatMap((p) =>
-                              p.variants.map((v) => ({
-                                id: v.id,
-                                label: v.name,
-                                subtitle: p.name,
-                              })),
-                            )
-                            .filter(
-                              (v) =>
-                                !formData.mixComponents.some(
-                                  (c) => c.variantId === v.id,
-                                ),
-                            )}
-                          selectedIds={[]}
-                          onSelectionChange={(ids) => {
-                            if (ids.length > 0) {
-                              const selectedVariant =
-                                mockProducts
-                                  .flatMap((p) =>
-                                    p.variants.map((v) => ({
-                                      id: v.id,
-                                      label: v.name,
-                                      subtitle: p.name,
-                                      unit: v.unit || "u",
-                                    })),
-                                  )
-                                  .find((v) => v.id === ids[0]);
-                              if (selectedVariant) {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  mixComponents: [
-                                    ...prev.mixComponents,
-                                    {
-                                      variantId:
-                                        selectedVariant.id,
-                                      variantName: `${selectedVariant.label} (${selectedVariant.unit})`,
-                                      quantity: 0,
-                                    },
-                                  ],
-                                }));
-                              }
-                            }
-                          }}
-                          placeholder="Buscar variantes para agregar..."
-                          showBadges={false}
-                          multiSelect={false}
-                        />
+            <div className={cn('grid gap-4 sm:grid-cols-2 lg:grid-cols-3 transition-opacity', query.isFetching && 'opacity-60')}>
+              {rows.map((p) => {
+                const img = firstImage(p);
+                return (
+                  <Card
+                    key={p.id}
+                    className={cn('group cursor-pointer overflow-hidden p-0 transition-shadow hover:shadow-md', !p.active && 'opacity-60')}
+                  >
+                    <div onClick={() => open(p)}>
+                      <div className="flex h-36 items-center justify-center bg-muted/50">
+                        {img ? (
+                          <img src={img} alt={p.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <Package className="w-10 h-10 text-muted-foreground/50" />
+                        )}
                       </div>
-
-                      {formData.mixComponents.length > 0 && (
-                        <div className="space-y-2">
-                          <Label className="block">
-                            Variantes seleccionadas
-                          </Label>
-                          {formData.mixComponents.map(
-                            (component, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-2 bg-card p-2 rounded-lg border border-border"
-                              >
-                                <span className="text-sm flex-1">
-                                  {component.variantName}
-                                </span>
-                                <Input
-                                  type="number"
-                                  placeholder="Cant."
-                                  value={
-                                    component.quantity || ""
-                                  }
-                                  onChange={(e) => {
-                                    const newComponents = [
-                                      ...formData.mixComponents,
-                                    ];
-                                    newComponents[
-                                      idx
-                                    ].quantity =
-                                      parseFloat(
-                                        e.target.value,
-                                      ) || 0;
-                                    setFormData({
-                                      ...formData,
-                                      mixComponents:
-                                        newComponents,
-                                    });
-                                  }}
-                                  className="w-24"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      mixComponents:
-                                        prev.mixComponents.filter(
-                                          (_, i) => i !== idx,
-                                        ),
-                                    }));
-                                  }}
-                                  className="text-destructive hover:bg-destructive/10 p-1 rounded"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ),
-                          )}
+                      <div className="space-y-2 p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate font-medium text-foreground">{p.name}</div>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {[p.Category?.name, p.Brand?.name].filter(Boolean).join(' · ') || '—'}
+                            </div>
+                          </div>
+                          <RowActions actions={actionsFor(p)} />
                         </div>
-                      )}
+                        <div className="flex items-center justify-between text-sm">
+                          <PriceRange p={p} />
+                          <StockCell p={p} />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <TagChips p={p} max={2} />
+                          <ActiveBadge active={p.active} />
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
+                  </Card>
+                );
+              })}
             </div>
           )}
-        </Modal>
+          {!!rows?.length && (
+            <Card className="p-0">
+              <Pagination {...pagination} pagination={pagination.info} disabled={query.isFetching} />
+            </Card>
+          )}
+        </div>
+      )}
 
-        {/* Confirm Delete Dialog */}
-        <ConfirmDialog
-          isOpen={confirmDelete !== null}
-          onClose={() => setConfirmDelete(null)}
-          onConfirm={() => {
-            console.log(
-              "Deleting product with ID:",
-              confirmDelete,
-            );
-            toast.success("Producto eliminado correctamente");
-            setConfirmDelete(null);
-          }}
-          title="Eliminar Producto"
-          message="¿Estás seguro de que deseas eliminar este producto? Esta acción es irreversible y no se puede deshacer."
-          confirmText="Eliminar"
-          cancelText="Cancelar"
-        />
-      </div>
-    </DashboardLayout>
+      <CreateProductModal isOpen={creating} onClose={() => setCreating(false)} />
+    </>
   );
 }

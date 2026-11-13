@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router";
+import { NavLink } from 'react-router';
 import {
   LayoutDashboard,
   Package,
@@ -11,137 +10,211 @@ import {
   Hash,
   BarChart3,
   Settings,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { cn } from "../lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "./ui/tooltip";
-import { Button } from "./ui/button";
+  Boxes,
+  ArrowLeftRight,
+  PackageSearch,
+  ShoppingBasket,
+  ChevronsLeft,
+  ChevronsRight,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
+import { cn } from '../lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { useAppDispatch, useAppSelector } from '../store';
+import { toggleSidebar } from '../store/uiSlice';
+import { orderItemsApi, ordersApi } from '../api/resources';
 
-const menuItems = [
+interface MenuItem {
+  icon: LucideIcon;
+  label: string;
+  path: string;
+  end?: boolean;
+  /** Contador en vivo (sale de la cache de RTK Query). */
+  count?: 'pendingOrders' | 'awaitingItems';
+}
+
+const sections: { title: string; items: MenuItem[] }[] = [
   {
-    icon: LayoutDashboard,
-    label: "Inicio",
-    path: "/dashboard",
+    title: 'Ventas',
+    items: [
+      { icon: LayoutDashboard, label: 'Inicio', path: '/dashboard', end: true },
+      { icon: ShoppingCart, label: 'Órdenes', path: '/dashboard/orders', count: 'pendingOrders' },
+      { icon: PackageSearch, label: 'Reposición', path: '/dashboard/restock', count: 'awaitingItems' },
+      { icon: ShoppingBasket, label: 'Carritos', path: '/dashboard/carts' },
+    ],
   },
   {
-    icon: Package,
-    label: "Productos",
-    path: "/dashboard/products",
+    title: 'Catálogo',
+    items: [
+      { icon: Package, label: 'Productos', path: '/dashboard/products' },
+      { icon: Boxes, label: 'Inventario', path: '/dashboard/inventory' },
+      { icon: ArrowLeftRight, label: 'Movimientos', path: '/dashboard/movements' },
+      { icon: Tag, label: 'Ofertas', path: '/dashboard/offers' },
+    ],
   },
   {
-    icon: ShoppingCart,
-    label: "Órdenes",
-    path: "/dashboard/orders",
-  },
-  { icon: Tag, label: "Ofertas", path: "/dashboard/offers" },
-  {
-    icon: Building2,
-    label: "Proveedores",
-    path: "/dashboard/suppliers",
-  },
-  { icon: Award, label: "Marcas", path: "/dashboard/brands" },
-  {
-    icon: FolderTree,
-    label: "Categorías",
-    path: "/dashboard/categories",
-  },
-  { icon: Hash, label: "Etiquetas", path: "/dashboard/tags" },
-  {
-    icon: BarChart3,
-    label: "Estadísticas",
-    path: "/dashboard/statistics",
+    title: 'Maestros',
+    items: [
+      { icon: FolderTree, label: 'Categorías', path: '/dashboard/categories' },
+      { icon: Award, label: 'Marcas', path: '/dashboard/brands' },
+      { icon: Building2, label: 'Proveedores', path: '/dashboard/suppliers' },
+      { icon: Hash, label: 'Etiquetas', path: '/dashboard/tags' },
+    ],
   },
   {
-    icon: Settings,
-    label: "Administración",
-    path: "/dashboard/administration",
+    title: 'Análisis',
+    items: [
+      { icon: BarChart3, label: 'Estadísticas', path: '/dashboard/statistics' },
+      { icon: Settings, label: 'Administración', path: '/dashboard/administration' },
+    ],
   },
 ];
 
-export function Sidebar() {
-  const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+/** Totales chicos para los badges del menú (amountPerPage=1 → sólo interesa totalAmount). */
+function useMenuCounts() {
+  const opts = { pollingInterval: 60_000 };
+  const pending = ordersApi.usePage({ status: 'PENDING', amountPerPage: 1 }, opts);
+  const awaiting = orderItemsApi.usePage({ status: 'AWAITING_STOCK', amountPerPage: 1 }, opts);
+  return {
+    pendingOrders: pending.data?.pagination.totalAmount ?? 0,
+    awaitingItems: awaiting.data?.pagination.totalAmount ?? 0,
+  };
+}
+
+interface SidebarProps {
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}
+
+export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((st) => st.auth.user);
+  const collapsed = useAppSelector((st) => st.ui.sidebarCollapsed);
+  const counts = useMenuCounts();
+
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Usuario';
+  const initials = displayName
+    .split(' ')
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  // En mobile siempre se muestra expandido.
+  const isCollapsed = collapsed && !mobileOpen;
 
   return (
-    <aside
-      className={cn(
-        "bg-sidebar border-r border-sidebar-border flex-shrink-0 transition-all duration-300 relative flex flex-col",
-        collapsed ? "w-20" : "w-64"
+    <>
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onMobileClose} aria-hidden="true" />
       )}
-    >
-      <div className="p-4 flex items-center justify-between h-16">
-        {!collapsed && (
-          <h1 className="text-sidebar-foreground font-bold truncate">
-            Panel Admin
-          </h1>
+      <aside
+        className={cn(
+          'bg-sidebar border-r border-sidebar-border flex flex-col flex-shrink-0 transition-all duration-300',
+          'fixed inset-y-0 left-0 z-50 w-64 lg:static lg:translate-x-0',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          isCollapsed && 'lg:w-[72px]',
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          className={cn(
-            "text-sidebar-foreground hover:bg-sidebar-accent",
-            collapsed ? "mx-auto" : "ml-auto"
+      >
+        <div className={cn('h-16 flex items-center gap-2 px-4 border-b border-sidebar-border', isCollapsed && 'justify-center px-0')}>
+          <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold shrink-0">
+            CR
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-sidebar-foreground truncate leading-tight">Canela en Rama</div>
+              <div className="text-xs text-muted-foreground">Panel de administración</div>
+            </div>
           )}
-        >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-        </Button>
-      </div>
-
-      <nav className="flex-1 px-3 space-y-2 overflow-y-auto py-4">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.path;
-
-          const LinkComponent = (
-            <Link
-              to={item.path}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group",
-                isActive
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-sidebar-foreground hover:bg-black/5 dark:hover:bg-white/10",
-                collapsed && "justify-center px-0"
-              )}
-            >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          );
-
-          if (collapsed) {
-            return (
-              <Tooltip key={item.path} delayDuration={0}>
-                <TooltipTrigger asChild>{LinkComponent}</TooltipTrigger>
-                <TooltipContent side="right" className="font-medium">
-                  {item.label}
-                </TooltipContent>
-              </Tooltip>
-            );
-          }
-
-          return <div key={item.path}>{LinkComponent}</div>;
-        })}
-      </nav>
-      
-      <div className="p-4 border-t border-sidebar-border mt-auto">
-        <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold">
-                 AU
-             </div>
-             {!collapsed && (
-                 <div className="flex flex-col">
-                     <span className="text-sm font-medium text-sidebar-foreground">Admin Usuario</span>
-                     <span className="text-xs text-muted-foreground">admin@example.com</span>
-                 </div>
-             )}
+          <button
+            onClick={onMobileClose}
+            className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:bg-sidebar-accent"
+            aria-label="Cerrar menú"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-      </div>
-    </aside>
+
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+          {sections.map((section) => (
+            <div key={section.title}>
+              {!isCollapsed && (
+                <div className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {section.title}
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const link = (
+                    <NavLink
+                      to={item.path}
+                      end={item.end}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                          isActive
+                            ? 'bg-primary text-primary-foreground font-medium shadow-sm'
+                            : 'text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent',
+                          isCollapsed && 'justify-center px-0 py-2.5',
+                        )
+                      }
+                    >
+                      <span className="relative">
+                        <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                        {isCollapsed && item.count && counts[item.count] > 0 && (
+                          <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-500" />
+                        )}
+                      </span>
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1 truncate">{item.label}</span>
+                          {item.count && counts[item.count] > 0 && (
+                            <span className="min-w-5 rounded-full bg-amber-500/15 px-1.5 text-center text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                              {counts[item.count]}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  );
+                  return isCollapsed ? (
+                    <Tooltip key={item.path} delayDuration={0}>
+                      <TooltipTrigger asChild>{link}</TooltipTrigger>
+                      <TooltipContent side="right">
+                        {item.label}
+                        {item.count && counts[item.count] > 0 ? ` (${counts[item.count]})` : ''}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <div key={item.path}>{link}</div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div className={cn('border-t border-sidebar-border p-3 flex items-center gap-3', isCollapsed && 'flex-col')}>
+          <div className="w-9 h-9 rounded-full bg-sidebar-accent text-sidebar-foreground flex items-center justify-center text-sm font-semibold shrink-0">
+            {initials}
+          </div>
+          {!isCollapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-sidebar-foreground truncate">{displayName}</div>
+              <div className="text-xs text-muted-foreground truncate">{user?.roles?.join(' · ') || user?.role}</div>
+            </div>
+          )}
+          <button
+            onClick={() => dispatch(toggleSidebar())}
+            className="hidden lg:flex p-1.5 rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
+          >
+            {collapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

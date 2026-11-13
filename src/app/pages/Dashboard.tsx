@@ -1,208 +1,209 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { DashboardLayout } from '../layouts/DashboardLayout';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/Card';
-import { KPICard } from '../components/KPICard';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/Table';
-import { Badge } from '../components/Badge';
-import { Button } from '../components/Button';
-import { 
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer 
-} from 'recharts';
-import { mockKPIs, mockSalesChartData, mockOrders, mockProducts } from '../data/mockData';
-import { formatCurrency, formatDate } from '../lib/utils';
-import { AlertTriangle } from 'lucide-react';
+import { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { AlertTriangle, ArrowRight, Clock, DollarSign, PackageSearch, Receipt, ShoppingCart, Tag } from 'lucide-react';
+import { offersApi, orderItemsApi, ordersApi, variantsApi } from '../api/resources';
+import type { ProductVariant } from '../api/types';
+import { Card, CardHeader, CardTitle } from '../components/Card';
+import { PageHeader } from '../components/PageHeader';
+import { StatTile } from '../components/StatTile';
+import { Badge, OrderStatusBadge } from '../components/Badge';
+import { EmptyState, ErrorState, Skeleton } from '../components/States';
+import { TrendChart } from '../components/Charts';
+import { variantLabel } from '../components/CatalogPickers';
+import { useOrderStats } from '../hooks/useOrderStats';
+import { useAppDispatch, useAppSelector } from '../store';
+import { patchFilters } from '../store/filtersSlice';
+import { formatQty, offerState, stockLevel, todayInput } from '../lib/domain';
+import { formatCurrency, formatNumber, formatOrderNumber, formatRelative } from '../lib/utils';
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Buen día' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [chartPeriod, setChartPeriod] = useState<'día' | 'semana' | 'mes' | 'año'>('semana');
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((s) => s.auth.user);
 
-  // Get chart data based on selected period
-  const chartData = mockSalesChartData[chartPeriod] || mockSalesChartData['semana'];
+  const since = todayInput(-13);
+  const stats = useOrderStats(since);
+  const today = todayInput();
+  const todayRevenue = stats.byDay.find((d) => d.day === today)?.revenue ?? 0;
 
-  // Get latest orders
-  const latestOrders = mockOrders.slice(0, 5);
+  const pending = ordersApi.usePage({ status: 'PENDING', amountPerPage: 5, detalle: true });
+  const processing = ordersApi.usePage({ status: 'PROCESSING', amountPerPage: 1 });
+  const awaiting = orderItemsApi.usePage({ status: 'AWAITING_STOCK', amountPerPage: 1 });
+  const offers = offersApi.useList({ active: true });
+  const variants = variantsApi.usePage({ active: true, detalle: true, amountPerPage: 100 });
 
-  // Get low stock products (stock < 10)
-  const lowStockProducts = mockProducts.flatMap(product => 
-    product.variants
-      .filter(v => v.stock < 10)
-      .map(v => ({ product, variant: v }))
-  ).slice(0, 5);
+  const lowStock = useMemo(
+    () =>
+      (variants.data?.content ?? [])
+        .filter((v) => stockLevel(v).tone !== 'success')
+        .sort((a, b) => a.currentStock / Math.max(1, a.stockThreshold) - b.currentStock / Math.max(1, b.stockThreshold))
+        .slice(0, 6),
+    [variants.data],
+  );
+  const activeOffers = (offers.data ?? []).filter((o) => offerState(o) === 'active').length;
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
-      delivered: 'success',
-      shipped: 'info',
-      processing: 'warning',
-      pending: 'warning',
-      cancelled: 'danger',
-    };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+  const goInventory = (v: ProductVariant) => {
+    dispatch(patchFilters({ key: 'inventory', patch: { name: v.name, page: 1 } }));
+    navigate('/dashboard/inventory');
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-foreground mb-1">Panel de administración</h1>
-          <p className="text-sm text-muted-foreground">
-            ¡Bienvenido de vuelta! Esto es lo que está pasando con tu aplicación
-          </p>
-        </div>
+    <>
+      <PageHeader
+        title={`${greeting()}${user?.name ? `, ${user.name.split(' ')[0]}` : ''}`}
+        description="Resumen de los últimos 14 días."
+      />
 
-        {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {mockKPIs.map((kpi, index) => (
-            <KPICard key={index} kpi={kpi} />
-          ))}
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label="Ventas de hoy"
+          value={formatCurrency(todayRevenue)}
+          hint={`${formatCurrency(stats.revenue)} en 14 días`}
+          icon={<DollarSign className="w-5 h-5" />}
+          loading={stats.isLoading}
+        />
+        <StatTile
+          label="Ticket promedio"
+          value={formatCurrency(stats.avgTicket)}
+          hint={`${formatNumber(stats.validCount)} órdenes no canceladas`}
+          icon={<Receipt className="w-5 h-5" />}
+          loading={stats.isLoading}
+        />
+        <StatTile
+          label="Por atender"
+          value={formatNumber((pending.data?.pagination.totalAmount ?? 0) + (processing.data?.pagination.totalAmount ?? 0))}
+          hint={`${pending.data?.pagination.totalAmount ?? 0} pendientes · ${processing.data?.pagination.totalAmount ?? 0} en preparación`}
+          icon={<ShoppingCart className="w-5 h-5" />}
+          loading={pending.isLoading}
+        />
+        <StatTile
+          label="Ítems esperando stock"
+          value={formatNumber(awaiting.data?.pagination.totalAmount ?? 0)}
+          hint={`${activeOffers} ofertas vigentes`}
+          icon={<PackageSearch className="w-5 h-5" />}
+          loading={awaiting.isLoading}
+        />
+      </div>
 
-        {/* Sales Chart */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Descripción general de ventas</CardTitle>
-              <div className="flex gap-2">
-                {(['día', 'semana', 'mes', 'año'] as const).map(period => (
-                  <Button
-                    key={period}
-                    variant={chartPeriod === period ? 'primary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setChartPeriod(period)}
-                  >
-                    {period.charAt(0).toUpperCase() + period.slice(1)}
-                  </Button>
-                ))}
-              </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex items-center justify-between gap-2">
+            <div>
+              <CardTitle>Ventas por día</CardTitle>
+              <p className="text-sm text-muted-foreground">Total de órdenes no canceladas</p>
             </div>
+            <Link to="/dashboard/statistics" className="text-sm font-medium text-primary hover:underline">
+              Ver estadísticas
+            </Link>
           </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="var(--color-muted-foreground)"
-                    style={{ fontSize: '12px' }}
-                  />
-                  <YAxis 
-                    stroke="var(--color-muted-foreground)"
-                    style={{ fontSize: '12px' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'var(--color-card)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '8px',
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="sales" 
-                    stroke="var(--color-chart-1)" 
-                    strokeWidth={2}
-                    dot={{ fill: 'var(--color-chart-1)' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
+          {stats.isLoading ? (
+            <Skeleton className="h-[260px] w-full" />
+          ) : stats.error ? (
+            <ErrorState error={stats.error} onRetry={stats.refetch} />
+          ) : (
+            <TrendChart
+              data={stats.byDay}
+              x="label"
+              y="revenue"
+              labelFormat={(_l, row) => `${row.label} · ${row.orders} órdenes`}
+            />
+          )}
         </Card>
 
-        {/* Two Column Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Latest Orders */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Últimas órdenes</CardTitle>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/dashboard/orders')}
-                >
-                  Ver todas
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Órdenes</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {latestOrders.map(order => (
-                    <TableRow 
-                      key={order.id}
-                      onClick={() => navigate(`/dashboard/orders/${order.id}`)}
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Stock bajo</CardTitle>
+            <Link to="/dashboard/inventory" className="text-sm font-medium text-primary hover:underline">
+              Inventario
+            </Link>
+          </CardHeader>
+          {variants.isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10" />
+              ))}
+            </div>
+          ) : lowStock.length === 0 ? (
+            <EmptyState title="Todo en orden" description="Ninguna variante activa está por debajo de su umbral." className="py-8" />
+          ) : (
+            <ul className="space-y-1">
+              {lowStock.map((v) => {
+                const lvl = stockLevel(v);
+                return (
+                  <li key={v.id}>
+                    <button
+                      type="button"
+                      onClick={() => goInventory(v)}
+                      className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted/60"
                     >
-                      <TableCell>{order.orderNumber}</TableCell>
-                      <TableCell>{order.customerName}</TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Low Stock Alerts */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                  Alerta de stock bajo
-                </CardTitle>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/dashboard/products')}
-                >
-                  Ver todos
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Producto</TableHead>
-                    <TableHead>Variante</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lowStockProducts.map(({ product, variant }) => (
-                    <TableRow 
-                      key={variant.id}
-                      onClick={() => navigate(`/dashboard/products/${product.id}`)}
-                    >
-                      <TableCell>{product.name}</TableCell>
-                      <TableCell>{variant.name}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={variant.stock < 5 ? 'danger' : 'warning'}>
-                          {variant.stock}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
+                      <AlertTriangle className={lvl.tone === 'danger' ? 'w-4 h-4 text-red-500' : 'w-4 h-4 text-amber-500'} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{variantLabel(v)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatQty(v.currentStock, v.contentMeasure)} · umbral {formatQty(v.stockThreshold, v.contentMeasure)}
+                        </div>
+                      </div>
+                      <Badge tone={lvl.tone}>{lvl.label}</Badge>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
       </div>
-    </DashboardLayout>
+
+      <Card className="p-0 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-500" />
+            <CardTitle>Órdenes pendientes de confirmar</CardTitle>
+          </div>
+          <ViewAllButton onClick={() => {
+            dispatch(patchFilters({ key: 'orders', patch: { status: 'PENDING', page: 1 } }));
+            navigate('/dashboard/orders');
+          }} />
+        </div>
+        {pending.isLoading ? (
+          <div className="p-6 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-8" />
+            ))}
+          </div>
+        ) : !pending.data?.content.length ? (
+          <EmptyState title="No hay órdenes pendientes" icon={<Tag className="w-6 h-6" />} className="py-8" />
+        ) : (
+          <ul className="divide-y divide-border">
+            {pending.data.content.map((o) => (
+              <li key={o.id}>
+                <Link
+                  to={`/dashboard/orders/${o.id}`}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-6 py-3 text-sm hover:bg-muted/40"
+                >
+                  <span className="font-mono font-medium">{formatOrderNumber(o.id)}</span>
+                  <span className="text-muted-foreground">{formatRelative(o.createdAt)}</span>
+                  <span className="truncate text-muted-foreground">{o.user?.email ?? o.userSuperTokensId.slice(0, 8)}</span>
+                  <span className="ml-auto font-medium tabular-nums">{formatCurrency(o.totalPrice)}</span>
+                  <OrderStatusBadge status={o.status} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </>
+  );
+}
+
+function ViewAllButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+      Ver todas <ArrowRight className="w-4 h-4" />
+    </button>
   );
 }

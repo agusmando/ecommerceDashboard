@@ -8,50 +8,20 @@ interface CardProps {
 
 export function Card({ children, className }: CardProps) {
   return (
-    <div className={cn(
-      'bg-card border border-border rounded-lg p-6 shadow-sm',
-      className
-    )}>
+    <div className={cn('bg-card border border-border rounded-xl p-6 shadow-sm', className)}>
       {children}
     </div>
   );
 }
 
-interface CardHeaderProps {
-  children: ReactNode;
-  className?: string;
+export function CardHeader({ children, className }: CardProps) {
+  return <div className={cn('mb-4', className)}>{children}</div>;
 }
 
-export function CardHeader({ children, className }: CardHeaderProps) {
-  return (
-    <div className={cn('mb-4', className)}>
-      {children}
-    </div>
-  );
+export function CardTitle({ children, className }: CardProps) {
+  return <h3 className={cn('text-base font-semibold text-foreground', className)}>{children}</h3>;
 }
 
-interface CardTitleProps {
-  children: ReactNode;
-  className?: string;
-}
-
-export function CardTitle({ children, className }: CardTitleProps) {
-  return (
-    <h3 className={cn('text-foreground', className)}>
-      {children}
-    </h3>
-  );
-}
-
-interface CardContentProps {
-  children: ReactNode;
-  className?: string;
-}
-
-export function CardContent({ children, className }: CardContentProps) {
-  return (
-    <div className={className}>
-      {children}
-    </div>
-  );
+export function CardContent({ children, className }: CardProps) {
+  return <div className={className}>{children}</div>;
 }

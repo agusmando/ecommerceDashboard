@@ -12,14 +12,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block mb-1.5 text-foreground">
+          <label htmlFor={props.id} className="block mb-1.5 text-sm font-medium text-foreground">
             {label}
           </label>
         )}
         <select
           ref={ref}
           className={cn(
-            'w-full h-10 px-3 rounded-lg border border-border bg-input-background',
+            'w-full h-10 px-3 rounded-lg border border-border bg-input-background text-foreground',
             'focus:outline-none focus:ring-2 focus:ring-ring',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             error && 'border-destructive',

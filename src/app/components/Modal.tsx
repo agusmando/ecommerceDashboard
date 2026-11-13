@@ -1,28 +1,33 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useId } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { Button } from './Button';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  description?: string;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   footer?: ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, children, size = 'md', footer }: ModalProps) {
+export function Modal({ isOpen, onClose, title, description, children, size = 'md', footer }: ModalProps) {
+  const titleId = useId();
+
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
-  }, [isOpen]);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -34,38 +39,42 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50"
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in-0"
         onClick={onClose}
       />
-      
-      {/* Modal */}
-      <div className={cn(
-        'relative bg-card border border-border rounded-lg shadow-xl w-full mx-4',
-        'max-h-[90vh] flex flex-col',
-        sizes[size]
-      )}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-foreground">{title}</h2>
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className={cn(
+          'relative bg-card border border-border shadow-xl w-full sm:mx-4',
+          'rounded-t-xl sm:rounded-xl max-h-[92vh] flex flex-col',
+          'animate-in fade-in-0 zoom-in-95 duration-150',
+          sizes[size],
+        )}
+      >
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-border">
+          <div>
+            <h2 id={titleId} className="text-lg font-semibold text-foreground">{title}</h2>
+            {description && <p className="text-sm text-muted-foreground mt-0.5">{description}</p>}
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Cerrar"
+            className="p-1 -m-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
 
-        {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
+          <div className="flex flex-wrap items-center justify-end gap-2 px-6 py-4 border-t border-border bg-muted/30 rounded-b-xl">
             {footer}
           </div>
         )}

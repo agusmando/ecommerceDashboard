@@ -1,414 +1,224 @@
-import { useState } from 'react';
-import { DashboardLayout } from '../layouts/DashboardLayout';
-import { Card } from '../components/Card';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/Table';
-import { Badge } from '../components/Badge';
+import { useMemo, useState } from 'react';
+import { CalendarClock, Pencil, Plus, Power, PowerOff, TicketPercent, Timer } from 'lucide-react';
+import { offersApi } from '../api/resources';
+import type { Offer } from '../api/types';
+import { useListFilters } from '../hooks/useListFilters';
+import { useActiveToggle } from '../hooks/useActiveToggle';
+import { DISCOUNT_TYPE, dayToIso, describeOffer, offerState, type OfferState } from '../lib/domain';
+import { formatDate, formatNumber } from '../lib/utils';
+import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
-import { Modal } from '../components/Modal';
-import { Input } from '../components/Input';
-import { Select } from '../components/Select';
-import { Switch } from '../components/ui/switch';
-import { Label } from '../components/ui/label';
-import { ConfirmDialog } from '../components/ConfirmDialog';
-import { mockOffers, mockProducts } from '../data/mockData';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import { formatCurrency, formatDateTime } from '../lib/utils';
-import type { Offer } from '../types';
+import { StatTile } from '../components/StatTile';
+import { DataTable, type Column } from '../components/DataTable';
+import { ActiveFilter, DateFilter, FilterBar, SearchInput, Segmented } from '../components/Filters';
+import { Badge, OfferStateBadge } from '../components/Badge';
+import { RowActions } from '../components/RowActions';
+import { variantLabel } from '../components/CatalogPickers';
+import { OfferFormModal } from '../components/offers/OfferFormModal';
 
-const OFFER_TYPES = [
-  { value: 'PERCENTAGE', label: 'Porcentual' },
-  { value: 'FIXED', label: 'Monto Fijo' },
-  { value: 'BUY_ONE_GET_MORE', label: 'Compra 1 y lleva más (2x1, 3x2)' },
-  { value: 'BUY_MORE_GET_MORE', label: 'Compra X y lleva Y gratis' },
-  { value: 'BUY_MORE_GET_DISCOUNT', label: 'Compra X y obtén % descuento' },
-  { value: 'BUY_MORE_GET_FIXED_DISCOUNT', label: 'Compra X y obtén $ descuento' },
-];
+type StateFilter = 'all' | Exclude<OfferState, 'inactive'>;
+
+const WEEK = 7 * 86400000;
+
+function offerTarget(o: Offer) {
+  if (o.ProductVariant) return { kind: 'Variante', name: variantLabel(o.ProductVariant) };
+  if (o.Product) return { kind: 'Producto', name: o.Product.name };
+  if (o.productVariantId) return { kind: 'Variante', name: `Variante #${o.productVariantId}` };
+  return { kind: 'Producto', name: `Producto #${o.productId}` };
+}
+
+function Validity({ o }: { o: Offer }) {
+  const start = new Date(o.startTime).getTime();
+  const end = new Date(o.finishTime).getTime();
+  const state = offerState(o);
+  const pct = Math.min(100, Math.max(0, ((Date.now() - start) / Math.max(1, end - start)) * 100));
+  return (
+    <div className="min-w-40">
+      <div className="text-sm whitespace-nowrap">
+        {formatDate(o.startTime)} – {formatDate(o.finishTime)}
+      </div>
+      {state === 'active' && (
+        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted" title={`${Math.round(pct)} % transcurrido`}>
+          <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Offers() {
-  const [showModal, setShowModal] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentOffer, setCurrentOffer] = useState<Offer | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  
-  // Form State
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'PERCENTAGE',
-    value: '', // General value for percentage/fixed
-    startDate: '',
-    endDate: '',
-    targetType: 'variant', // 'product' | 'variant'
-    selectedIds: [] as string[], // IDs of selected products or variants
-    isActive: true,
-    
-    // Advanced fields
-    discountQuantity: '',
-    discountValue: '',
-    quantityToGet: '',
-    stockThreshold: '',
+  const f = useListFilters('offers', { active: '', product: '', variants: '', from: '', to: '' }, { textKeys: ['product', 'variants'] });
+  const d = f.debounced;
+  const [stateFilter, setStateFilter] = useState<StateFilter>('all');
+  const [editing, setEditing] = useState<Offer | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+
+  const q = offersApi.usePage({
+    detalle: true,
+    active: d.active === '' ? '' : d.active === 'true',
+    product: d.product as string,
+    variants: d.variants as string,
+    from: dayToIso(d.from as string),
+    to: dayToIso(d.to as string, true),
+    currentPage: d.page,
+    amountPerPage: d.pageSize,
   });
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'success' | 'warning' | 'info' | 'default'> = {
-      active: 'success',
-      inactive: 'default',
-      scheduled: 'info',
-      expired: 'warning',
+  const [setActive] = offersApi.useSetActive();
+  const toggle = useActiveToggle(setActive, 'la oferta');
+
+  const all = q.data?.content;
+  const rows = useMemo(
+    () => (stateFilter === 'all' ? all : all?.filter((o) => offerState(o) === stateFilter)),
+    [all, stateFilter],
+  );
+
+  const stats = useMemo(() => {
+    const now = Date.now();
+    const list = all ?? [];
+    return {
+      active: list.filter((o) => offerState(o, now) === 'active').length,
+      scheduled: list.filter((o) => offerState(o, now) === 'scheduled').length,
+      expiring: list.filter((o) => offerState(o, now) === 'active' && new Date(o.finishTime).getTime() - now <= WEEK).length,
     };
-    const labels: Record<string, string> = {
-      active: 'Activa',
-      inactive: 'Inactiva',
-      scheduled: 'Programada',
-      expired: 'Expirada',
-    };
-    return <Badge variant={variants[status]}>{labels[status] || status}</Badge>;
+  }, [all]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setFormOpen(true);
+  };
+  const openEdit = (o: Offer) => {
+    setEditing(o);
+    setFormOpen(true);
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      type: 'PERCENTAGE',
-      value: '',
-      startDate: '',
-      endDate: '',
-      targetType: 'variant',
-      selectedIds: [],
-      isActive: true,
-      discountQuantity: '',
-      discountValue: '',
-      quantityToGet: '',
-      stockThreshold: '',
-    });
-  };
-
-  const handleCreate = () => {
-    setIsEditing(false);
-    setCurrentOffer(null);
-    resetForm();
-    setShowModal(true);
-  };
-
-  const handleEdit = (offer: Offer) => {
-    setIsEditing(true);
-    setCurrentOffer(offer);
-    
-    // Populate form with offer data
-    const targetType = offer.productIds && offer.productIds.length > 0 ? 'product' : 'variant';
-    const selectedIds = targetType === 'product' ? (offer.productIds || []) : (offer.variantIds || []);
-    
-    setFormData({
-      name: offer.name,
-      type: offer.type,
-      value: offer.value.toString(),
-      startDate: new Date(offer.startDate).toISOString().slice(0, 16),
-      endDate: new Date(offer.endDate).toISOString().slice(0, 16),
-      targetType,
-      selectedIds,
-      isActive: offer.status === 'active',
-      discountQuantity: offer.discountQuantity?.toString() || '',
-      discountValue: offer.discountValue?.toString() || '',
-      quantityToGet: offer.quantityToGet?.toString() || '',
-      stockThreshold: offer.stockThreshold?.toString() || '',
-    });
-    
-    setShowModal(true);
-  };
-
-  const handleSubmit = () => {
-    console.log('Submitting offer:', { isEditing, currentOffer: currentOffer?.id, ...formData });
-    setShowModal(false);
-  };
-
-  const handleDelete = (offerId: string) => {
-    console.log('Deleting offer:', offerId);
-    setConfirmDelete(null);
-  };
-
-  const toggleSelection = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedIds: prev.selectedIds.includes(id)
-        ? prev.selectedIds.filter(item => item !== id)
-        : [...prev.selectedIds, id]
-    }));
-  };
-
-  // Helper to determine which fields to show
-  const showField = (field: string) => {
-    const type = formData.type;
-    switch (field) {
-      case 'value':
-        return type === 'PERCENTAGE' || type === 'FIXED';
-      case 'discountQuantity':
-        return ['BUY_ONE_GET_MORE', 'BUY_MORE_GET_MORE', 'BUY_MORE_GET_DISCOUNT', 'BUY_MORE_GET_FIXED_DISCOUNT'].includes(type);
-      case 'discountValue':
-        return ['BUY_ONE_GET_MORE', 'BUY_MORE_GET_MORE', 'BUY_MORE_GET_DISCOUNT', 'BUY_MORE_GET_FIXED_DISCOUNT'].includes(type);
-      case 'quantityToGet':
-        return ['BUY_MORE_GET_MORE', 'BUY_MORE_GET_DISCOUNT', 'BUY_MORE_GET_FIXED_DISCOUNT'].includes(type);
-      default:
-        return false;
-    }
-  };
+  const columns: Column<Offer>[] = [
+    {
+      key: 'target',
+      header: 'Aplica a',
+      cell: (o) => {
+        const t = offerTarget(o);
+        return (
+          <div className="min-w-0">
+            <div className="font-medium truncate max-w-64">{t.name}</div>
+            <Badge tone={t.kind === 'Variante' ? 'info' : 'violet'} className="mt-1">
+              {t.kind}
+            </Badge>
+          </div>
+        );
+      },
+    },
+    { key: 'type', header: 'Tipo', hideOnMobile: true, cell: (o) => <span className="text-muted-foreground">{DISCOUNT_TYPE[o.discountType]?.short ?? o.discountType}</span> },
+    {
+      key: 'benefit',
+      header: 'Beneficio',
+      cell: (o) => <span className="font-medium">{describeOffer(o, o.ProductVariant?.contentMeasure ?? o.Product?.measure)}</span>,
+    },
+    { key: 'validity', header: 'Vigencia', cell: (o) => <Validity o={o} /> },
+    {
+      key: 'threshold',
+      header: 'Stock mín.',
+      align: 'right',
+      hideOnMobile: true,
+      cell: (o) => (o.stockThreshold ? <span className="tabular-nums">{formatNumber(o.stockThreshold)}</span> : <span className="text-muted-foreground">—</span>),
+    },
+    { key: 'state', header: 'Estado', cell: (o) => <OfferStateBadge state={offerState(o)} /> },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      cell: (o) => (
+        <RowActions
+          actions={[
+            { label: 'Editar', icon: <Pencil className="w-4 h-4" />, onClick: () => openEdit(o) },
+            {
+              label: o.active ? 'Desactivar' : 'Activar',
+              icon: o.active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />,
+              danger: o.active,
+              separator: true,
+              onClick: () => toggle(o.id, `Oferta #${o.id}`, o.active),
+            },
+          ]}
+        />
+      ),
+    },
+  ];
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-foreground mb-1">Ofertas</h1>
-            <p className="text-sm text-muted-foreground">Gestionar ofertas promocionales</p>
-          </div>
-          <Button onClick={handleCreate}>
-            <Plus className="w-5 h-5 mr-2" />
-            Agregar
+    <>
+      <PageHeader
+        title="Ofertas"
+        description="Descuentos por variante o producto. Las vencidas, inactivas o por debajo del stock mínimo no se aplican."
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="w-4 h-4" />
+            Nueva oferta
           </Button>
-        </div>
+        }
+      />
 
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Cant. Compra</TableHead>
-                <TableHead>Cant. Gratis</TableHead>
-                <TableHead className="text-center">Alcance</TableHead>
-                <TableHead>Fecha inicio</TableHead>
-                <TableHead>Fecha fin</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockOffers.map(offer => (
-                <TableRow key={offer.id}>
-                  <TableCell>{offer.name}</TableCell>
-                  <TableCell><Badge>{offer.type.replace(/_/g, ' ')}</Badge></TableCell>
-                  <TableCell>
-                    {offer.type === 'PERCENTAGE' ? `${offer.value}%` : 
-                     offer.type === 'FIXED' ? formatCurrency(offer.value) : '-'}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {offer.quantityToGet ? offer.quantityToGet : '-'}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {offer.discountQuantity ? offer.discountQuantity : '-'}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {offer.productIds && offer.productIds.length > 0 
-                        ? `${offer.productIds.length} Productos` 
-                        : `${offer.variantIds ? offer.variantIds.length : 0} Variantes`}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{formatDateTime(offer.startDate)}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{formatDateTime(offer.endDate)}</TableCell>
-                  <TableCell>{getStatusBadge(offer.status)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleEdit(offer)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setConfirmDelete(offer.id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-
-        {/* Create/Edit Modal */}
-        <Modal
-          isOpen={showModal}
-          onClose={() => setShowModal(false)}
-          title={isEditing ? "Editar oferta" : "Crear nueva oferta"}
-          size="lg"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setShowModal(false)}>Cancelar</Button>
-              <Button onClick={handleSubmit}>{isEditing ? 'Guardar Cambios' : 'Crear'}</Button>
-            </>
-          }
-        >
-          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-            <Input 
-                label="Nombre de la oferta" 
-                placeholder="ej: Descuentos por día del amigo" 
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
-                label="Tipo de Oferta"
-                options={OFFER_TYPES}
-                value={formData.type}
-                onChange={(e) => setFormData({...formData, type: e.target.value})}
-              />
-              
-              {showField('value') && (
-                  <Input 
-                    label={formData.type === 'PERCENTAGE' ? "Porcentaje (%)" : "Monto ($)"} 
-                    type="number" 
-                    placeholder="0"
-                    value={formData.value}
-                    onChange={(e) => setFormData({...formData, value: e.target.value})}
-                  />
-              )}
-            </div>
-
-            {/* Dynamic Fields for Complex Offers */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {showField('quantityToGet') && (
-                    <Input 
-                        label="Cantidad a Comprar (X)" 
-                        type="number" 
-                        placeholder="Ej: 3"
-                        value={formData.quantityToGet}
-                        onChange={(e) => setFormData({...formData, quantityToGet: e.target.value})}
-                    />
-                )}
-                {showField('discountQuantity') && (
-                    <Input 
-                        label="Cantidad Bonificada (Y)" 
-                        type="number" 
-                        placeholder="Ej: 1"
-                        value={formData.discountQuantity}
-                        onChange={(e) => setFormData({...formData, discountQuantity: e.target.value})}
-                    />
-                )}
-                {showField('discountValue') && (
-                    <Input 
-                        label="Valor del Descuento" 
-                        type="number" 
-                        placeholder="Ej: 50 (para 50%)"
-                        value={formData.discountValue}
-                        onChange={(e) => setFormData({...formData, discountValue: e.target.value})}
-                    />
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input 
-                label="Stock Mínimo Requerido" 
-                type="number" 
-                placeholder="0"
-                value={formData.stockThreshold}
-                onChange={(e) => setFormData({...formData, stockThreshold: e.target.value})}
-              />
-              <Input 
-                label="Fecha de inicio" 
-                type="datetime-local" 
-                value={formData.startDate}
-                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-              />
-              <Input 
-                label="Fecha de finalización" 
-                type="datetime-local" 
-                value={formData.endDate}
-                onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-              />
-            </div>
-
-            {/* Active Status (only in edit mode) */}
-            {isEditing && (
-              <div className="flex flex-col gap-2 border-t border-border pt-4">
-                <Label className="text-foreground">Estado de la Oferta</Label>
-                <div className="flex items-center gap-2">
-                  <Switch 
-                    checked={formData.isActive}
-                    onCheckedChange={(checked) => setFormData({...formData, isActive: checked})}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {formData.isActive ? 'Activa' : 'Inactiva'}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Target Selection */}
-            <div className="border-t border-border pt-4">
-              <div className="flex items-center justify-between mb-4">
-                  <Label className="text-foreground">Aplicar a:</Label>
-                  <div className="flex bg-muted rounded-lg p-1">
-                      <button
-                        className={`px-3 py-1 text-xs rounded-md transition-all ${formData.targetType === 'variant' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
-                        onClick={() => setFormData({...formData, targetType: 'variant', selectedIds: []})}
-                      >
-                        Variantes Específicas
-                      </button>
-                      <button
-                        className={`px-3 py-1 text-xs rounded-md transition-all ${formData.targetType === 'product' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
-                        onClick={() => setFormData({...formData, targetType: 'product', selectedIds: []})}
-                      >
-                        Productos Completos
-                      </button>
-                  </div>
-              </div>
-
-              <div className="border border-border rounded-lg p-3 max-h-60 overflow-y-auto bg-background/50">
-                {mockProducts.map(product => (
-                  <div key={product.id} className="mb-2">
-                    {formData.targetType === 'product' ? (
-                        <div 
-                            className={`flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-muted/50 ${formData.selectedIds.includes(product.id) ? 'bg-primary/5' : ''}`}
-                            onClick={() => toggleSelection(product.id)}
-                        >
-                             <div className={`w-4 h-4 rounded border flex items-center justify-center ${formData.selectedIds.includes(product.id) ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-                                {formData.selectedIds.includes(product.id) && <div className="w-2 h-2 bg-primary-foreground rounded-full" />}
-                             </div>
-                             <span className="text-sm font-medium">{product.name}</span>
-                        </div>
-                    ) : (
-                        <div className="mb-3">
-                            <div className="text-xs font-semibold text-muted-foreground px-2 py-1 bg-muted/30 rounded mb-1">
-                                {product.name}
-                            </div>
-                            {product.variants.map(variant => (
-                                <div 
-                                    key={variant.id} 
-                                    className={`flex items-center gap-3 py-1.5 px-3 hover:bg-muted/50 rounded cursor-pointer ${formData.selectedIds.includes(variant.id) ? 'bg-primary/5' : ''}`}
-                                    onClick={() => toggleSelection(variant.id)}
-                                >
-                                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${formData.selectedIds.includes(variant.id) ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-                                        {formData.selectedIds.includes(variant.id) && <div className="w-2 h-2 bg-primary-foreground rounded-full" />}
-                                    </div>
-                                    <span className="text-sm">{variant.name}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-2 text-xs text-muted-foreground text-right">
-                {formData.selectedIds.length} seleccionados
-              </div>
-            </div>
-          </div>
-        </Modal>
-
-        {/* Delete Confirmation */}
-        <ConfirmDialog
-          isOpen={!!confirmDelete}
-          onClose={() => setConfirmDelete(null)}
-          onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
-          title="Eliminar Oferta"
-          description="¿Estás seguro de que deseas eliminar esta oferta? Esta acción es irreversible y no se puede deshacer."
-          confirmText="Eliminar"
-          cancelText="Cancelar"
-        />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatTile label="Vigentes" value={stats.active} icon={<TicketPercent className="w-5 h-5" />} loading={q.isLoading} hint="En esta página" />
+        <StatTile label="Programadas" value={stats.scheduled} icon={<CalendarClock className="w-5 h-5" />} loading={q.isLoading} hint="Empiezan más adelante" />
+        <StatTile label="Vencen en 7 días" value={stats.expiring} icon={<Timer className="w-5 h-5" />} loading={q.isLoading} hint="Vigentes por terminar" />
       </div>
-    </DashboardLayout>
+
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(o) => o.id}
+        loading={q.isLoading}
+        fetching={q.isFetching}
+        error={q.error}
+        onRetry={q.refetch}
+        onRowClick={openEdit}
+        rowClassName={(o) => (o.active ? undefined : 'opacity-60')}
+        empty={{
+          title: f.activeCount || stateFilter !== 'all' ? 'Ninguna oferta coincide con los filtros' : 'Todavía no hay ofertas',
+          description: 'Creá una oferta para una variante o un producto.',
+          action: !f.activeCount ? (
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="w-4 h-4" /> Nueva oferta
+            </Button>
+          ) : undefined,
+        }}
+        pagination={{
+          info: q.data?.pagination,
+          page: f.values.page,
+          pageSize: f.values.pageSize,
+          onPageChange: f.setPage,
+          onPageSizeChange: f.setPageSize,
+        }}
+        toolbar={
+          <div className="space-y-3">
+            <FilterBar
+              activeCount={f.activeCount}
+              onReset={() => {
+                f.reset();
+                setStateFilter('all');
+              }}
+            >
+              <SearchInput value={f.values.product as string} onChange={(v) => f.set({ product: v })} placeholder="Producto…" />
+              <SearchInput value={f.values.variants as string} onChange={(v) => f.set({ variants: v })} placeholder="Variante…" />
+              <ActiveFilter value={f.values.active as '' | 'true' | 'false'} onChange={(v) => f.set({ active: v })} labels={['Todas', 'Activas', 'Inactivas']} />
+              <DateFilter label="Desde" value={f.values.from as string} onChange={(v) => f.set({ from: v })} />
+              <DateFilter label="Hasta" value={f.values.to as string} onChange={(v) => f.set({ to: v })} />
+            </FilterBar>
+            <Segmented<StateFilter>
+              value={stateFilter}
+              onChange={setStateFilter}
+              options={[
+                { value: 'all', label: 'Todas', count: all?.length },
+                { value: 'active', label: 'Vigentes', count: stats.active },
+                { value: 'scheduled', label: 'Programadas', count: stats.scheduled },
+                { value: 'expired', label: 'Vencidas', count: all?.filter((o) => offerState(o) === 'expired').length },
+              ]}
+            />
+          </div>
+        }
+      />
+
+      <OfferFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} offer={editing} />
+    </>
   );
 }
