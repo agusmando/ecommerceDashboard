@@ -100,7 +100,7 @@ export function AddVariantModal({ product, isOpen, onClose }: { product: Product
           </p>
         )}
 
-        <VariantFields draft={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} errors={errors} hidePricing={kind === 'mix'} />
+        <VariantFields draft={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} errors={errors} hidePricing={kind === 'mix'} productIsLocal={!!product.isLocal} />
 
         {kind === 'mix' && (
           <FormSection

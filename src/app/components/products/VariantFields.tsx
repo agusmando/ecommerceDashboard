@@ -1,5 +1,5 @@
 import { MEASURES, type Measure, type VariantInput } from '../../api/types';
-import { computeFinalPrice, priceUnit } from '../../lib/domain';
+import { computeFinalPrice, fromLocalChoice, LOCAL_CHOICES, priceUnit, type LocalChoice } from '../../lib/domain';
 import { formatCurrency } from '../../lib/utils';
 import { AffixInput, Field, FormGrid, inputClass, num, parseNumberList, SwitchRow } from '../Form';
 
@@ -15,6 +15,8 @@ export interface VariantDraft {
   stockThreshold: string;
   requestTime: string;
   availableWeb: boolean;
+  /** '' = igual que el producto */
+  isLocal: LocalChoice;
 }
 
 export const emptyVariant = (measure: Measure = 'KG', name = ''): VariantDraft => ({
@@ -28,6 +30,7 @@ export const emptyVariant = (measure: Measure = 'KG', name = ''): VariantDraft =
   stockThreshold: '',
   requestTime: '',
   availableWeb: true,
+  isLocal: '',
 });
 
 export type VariantErrors = Partial<Record<keyof VariantDraft, string>>;
@@ -55,6 +58,7 @@ export function draftToInput(d: VariantDraft): VariantInput {
     stockThreshold: num(d.stockThreshold) ?? 0,
     requestTime: d.requestTime.trim(),
     availableWeb: d.availableWeb,
+    isLocal: fromLocalChoice(d.isLocal),
   };
 }
 
@@ -72,12 +76,15 @@ export function VariantFields({
   onChange,
   errors = {},
   hidePricing = false,
+  productIsLocal = false,
 }: {
   draft: VariantDraft;
   onChange: (patch: Partial<VariantDraft>) => void;
   errors?: VariantErrors;
   /** Para mixes: el precio lo calcula el backend. */
   hidePricing?: boolean;
+  /** Valor del producto, para explicar qué significa "igual que el producto". */
+  productIsLocal?: boolean;
 }) {
   const final = computeFinalPrice(Number(draft.price) || 0, (Number(draft.marginPct) || 0) / 100, Number(draft.roundingOption));
   const unit = stockUnit(draft.contentMeasure);
@@ -146,6 +153,31 @@ export function VariantFields({
 
       <SwitchRow label="Disponible en la web"
           description="Oculta esta variante en la tienda. Si ninguna variante queda visible, el producto deja de aparecer." checked={draft.availableWeb} onChange={(v) => onChange({ availableWeb: v })} />
+
+      <LocalSelect value={draft.isLocal} onChange={(isLocal) => onChange({ isLocal })} productIsLocal={productIsLocal} />
     </div>
+  );
+}
+
+/** "Productor local" de una variante: hereda del producto o lo fija. */
+export function LocalSelect({
+  value,
+  onChange,
+  productIsLocal,
+}: {
+  value: LocalChoice;
+  onChange: (v: LocalChoice) => void;
+  productIsLocal?: boolean;
+}) {
+  return (
+    <Field label="Productor local" hint="Para variantes sin marca de productores locales. En la tienda se muestra «Productor local» en vez de la marca.">
+      <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value as LocalChoice)}>
+        {LOCAL_CHOICES(productIsLocal).map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </Field>
   );
 }

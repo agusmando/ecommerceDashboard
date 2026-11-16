@@ -129,6 +129,20 @@ export function stockLevel(v: Pick<ProductVariant, 'currentStock' | 'stockThresh
 /** Variante mix = tiene receta. */
 export const isMix = (v: Pick<ProductVariant, 'hasComponents'>) => (v.hasComponents?.length ?? 0) > 0;
 
+/** Productor local: lo que diga la variante o, si no lo define (null), el producto. */
+export const isLocalVariant = (v: Pick<ProductVariant, 'isLocal' | 'local'>, productIsLocal?: boolean) =>
+  !!(v.local ?? v.isLocal ?? productIsLocal);
+
+/** Valor del select "Productor local" de una variante ('' = igual que el producto). */
+export type LocalChoice = '' | 'true' | 'false';
+export const toLocalChoice = (v: boolean | null | undefined): LocalChoice => (v == null ? '' : v ? 'true' : 'false');
+export const fromLocalChoice = (c: LocalChoice): boolean | null => (c === '' ? null : c === 'true');
+export const LOCAL_CHOICES = (productIsLocal?: boolean) => [
+  { value: '' as const, label: `Igual que el producto (${productIsLocal ? 'local' : 'de marca'})` },
+  { value: 'true' as const, label: 'Sí, productor local' },
+  { value: 'false' as const, label: 'No, es de marca' },
+];
+
 /** Precio de venta: el backend lo calcula, pero lo replicamos para la vista previa de formularios. */
 export function computeFinalPrice(price: number, margin = 0, rounding = 10) {
   if (!(price > 0)) return 0;

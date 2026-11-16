@@ -22,7 +22,7 @@ import { patchFilters } from '../store/filtersSlice';
 import { useActiveToggle } from '../hooks/useActiveToggle';
 import { useAction } from '../hooks/useAction';
 import { useCan } from '../hooks/useCan';
-import { describeOffer, formatQty, isMix, MEASURE_LABEL, offerState, stockLevel } from '../lib/domain';
+import { describeOffer, formatQty, isLocalVariant, isMix, MEASURE_LABEL, offerState, stockLevel } from '../lib/domain';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
@@ -129,6 +129,7 @@ export default function ProductDetail() {
             <div className="flex items-center gap-1.5 font-medium">
               <span className="truncate">{v.name}</span>
               {isMix(v) && <Badge tone="violet">Mix</Badge>}
+              {isLocalVariant(v, product.isLocal) && <Badge tone="success">Local</Badge>}
             </div>
             <PackagingChips variant={v} />
           </div>
@@ -224,6 +225,7 @@ export default function ProductDetail() {
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {product.name}
             <ActiveBadge active={product.active} />
+            {product.isLocal && <Badge tone="success">Productor local</Badge>}
           </span>
         }
         description={product.description || undefined}
@@ -257,6 +259,7 @@ export default function ProductDetail() {
           <div className="divide-y divide-border">
             <InfoRow label="Categoría">{product.Category?.name ?? '—'}</InfoRow>
             <InfoRow label="Marca">{product.Brand?.name ?? '—'}</InfoRow>
+            <InfoRow label="Productor local">{product.isLocal ? 'Sí (en la tienda reemplaza a la marca)' : 'No'}</InfoRow>
             <InfoRow label="Medida">{MEASURE_LABEL[product.measure] ?? product.measure}</InfoRow>
             <InfoRow label="Variantes">
               {variants.filter((v) => v.active).length} activas de {variants.length}

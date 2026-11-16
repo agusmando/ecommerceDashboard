@@ -9,7 +9,7 @@ import { MEASURE_LABEL } from '../../lib/domain';
 import { Modal } from '../Modal';
 import { Button } from '../Button';
 import { FormError } from '../States';
-import { Field, FormGrid, FormSection, inputClass, Textarea } from '../Form';
+import { Field, FormGrid, FormSection, inputClass, SwitchRow, Textarea } from '../Form';
 import { BrandSelect, CategorySelect, TagMultiSelect } from '../CatalogPickers';
 import { ImageInput } from './ImageInput';
 import { draftToInput, emptyVariant, validateVariant, VariantFields, type VariantDraft, type VariantErrors } from './VariantFields';
@@ -30,6 +30,7 @@ export function CreateProductModal({ isOpen, onClose }: { isOpen: boolean; onClo
   const [measure, setMeasure] = useState<Measure>('KG');
   const [categoryId, setCategoryId] = useState<Id | null>(null);
   const [brandId, setBrandId] = useState<Id | null>(null);
+  const [isLocal, setIsLocal] = useState(false);
   const [tagIds, setTagIds] = useState<Id[]>([]);
   const [images, setImages] = useState<File[]>([]);
   const [variants, setVariants] = useState<VariantDraft[]>([emptyVariant('KG')]);
@@ -42,6 +43,7 @@ export function CreateProductModal({ isOpen, onClose }: { isOpen: boolean; onClo
     setMeasure('KG');
     setCategoryId(null);
     setBrandId(null);
+    setIsLocal(false);
     setTagIds([]);
     setImages([]);
     setVariants([emptyVariant('KG')]);
@@ -82,6 +84,7 @@ export function CreateProductModal({ isOpen, onClose }: { isOpen: boolean; onClo
         measure,
         categoryId: categoryId!,
         brandId: brandId!,
+        isLocal,
         Tags: tagIds.length ? tagIds.map((id) => ({ id })) : undefined,
         variants: variants.map(draftToInput),
         images,
@@ -137,6 +140,7 @@ export function CreateProductModal({ isOpen, onClose }: { isOpen: boolean; onClo
               <BrandSelect value={brandId} onChange={setBrandId} />
             </Field>
           </FormGrid>
+          <SwitchRow label="Productor local" description="Sin marca comercial: en la tienda se muestra «Productor local» en lugar de la marca y aparece en el filtro de productores locales. Cada variante puede cambiarlo." checked={isLocal} onChange={setIsLocal} />
           <Field label="Descripción">
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
@@ -168,7 +172,7 @@ export function CreateProductModal({ isOpen, onClose }: { isOpen: boolean; onClo
                     </Button>
                   )}
                 </div>
-                <VariantFields draft={v} onChange={(p) => patchVariant(i, p)} errors={errors.variants?.[i]} />
+                <VariantFields draft={v} onChange={(p) => patchVariant(i, p)} errors={errors.variants?.[i]} productIsLocal={isLocal} />
               </div>
             ))}
           </div>

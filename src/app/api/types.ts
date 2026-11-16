@@ -186,6 +186,10 @@ export interface ProductVariant {
   stockThreshold: number;
   roundingOption: number;
   availableWeb: boolean;
+  /** Productor local solo para esta variante; null = igual que el producto. */
+  isLocal?: boolean | null;
+  /** Ya resuelto por el API (variante o, si no lo define, producto). */
+  local?: boolean;
   finalPrice?: number;
   /** Oferta vigente (calculada por el backend, mismas reglas que el carrito). */
   activeOffer?: ActiveOffer | null;
@@ -206,6 +210,8 @@ export interface Product {
   measure: Measure;
   categoryId: Id;
   brandId: Id;
+  /** De productores locales (sin marca comercial). En la tienda reemplaza a la marca. */
+  isLocal?: boolean;
   Category?: Category;
   Brand?: Brand;
   Tags?: Tag[];
@@ -221,6 +227,7 @@ export interface ProductFilters extends ListParams {
   /** Nombre de tag; repetido exige todos. */
   tags?: string[];
   variants?: string;
+  isLocal?: boolean | '';
 }
 
 export interface VariantFilters extends ListParams {
@@ -244,6 +251,7 @@ export interface VariantInput {
   stockThreshold?: number;
   requestTime?: string;
   availableWeb?: boolean;
+  isLocal?: boolean | null;
   hasComponents?: { productVariantId: Id; quantity: number }[];
 }
 
@@ -253,6 +261,7 @@ export interface CreateProductInput {
   measure: Measure;
   categoryId: Id;
   brandId: Id;
+  isLocal?: boolean;
   Tags?: { id: Id }[];
   variants: VariantInput[];
   images?: File[];
@@ -264,6 +273,7 @@ export interface UpdateProductInput {
   measure?: Measure;
   categoryId?: Id;
   brandId?: Id;
+  isLocal?: boolean;
   addVariants?: VariantInput[];
   activateVariants?: Id[];
   deactivateVariants?: Id[];
@@ -281,6 +291,7 @@ export interface UpdateVariantInput {
   /** Delta: + IN (o produce si es mix), − OUT. */
   stockIncrement?: number;
   availableWeb?: boolean;
+  isLocal?: boolean | null;
   packagingOptions?: number[];
   stockThreshold?: number;
   requestTime?: string;

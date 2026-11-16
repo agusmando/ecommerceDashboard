@@ -30,6 +30,7 @@ const DEFAULTS = {
   tags: [] as string[],
   variants: '',
   active: '' as '' | 'true' | 'false',
+  local: '' as '' | 'true' | 'false',
 };
 
 // ---------------------------------------------------------------- Resúmenes por producto
@@ -112,6 +113,7 @@ export default function Products() {
     tags: debounced.tags,
     variants: debounced.variants,
     active: debounced.active === '' ? '' : debounced.active === 'true',
+    isLocal: debounced.local === '' ? '' : debounced.local === 'true',
     detalle: true,
     currentPage: debounced.page,
     amountPerPage: debounced.pageSize,
@@ -158,7 +160,21 @@ export default function Products() {
       ),
     },
     { key: 'category', header: 'Categoría', hideOnMobile: true, cell: (p) => p.Category?.name ?? '—' },
-    { key: 'brand', header: 'Marca', hideOnMobile: true, cell: (p) => p.Brand?.name ?? '—' },
+    {
+      key: 'brand',
+      header: 'Marca',
+      hideOnMobile: true,
+      cell: (p) => (
+        <span className="flex flex-wrap items-center gap-1.5">
+          {p.Brand?.name ?? '—'}
+          {p.isLocal ? (
+            <Badge tone="success">Local</Badge>
+          ) : (
+            p.variants?.some((v) => v.isLocal) && <Badge tone="success" title="Algunas variantes son de productor local">Local (algunas)</Badge>
+          )}
+        </span>
+      ),
+    },
     { key: 'tags', header: 'Etiquetas', hideOnMobile: true, cell: (p) => <TagChips p={p} /> },
     {
       key: 'variants',
@@ -198,6 +214,15 @@ export default function Products() {
       <SearchInput value={values.name} onChange={(name) => f.set({ name })} placeholder="Buscar por nombre…" />
       <FilterSelect value={values.category} onChange={(category) => f.set({ category })} options={categoryOptions} placeholder="Todas las categorías" />
       <FilterSelect value={values.brand} onChange={(brand) => f.set({ brand })} options={brandOptions} placeholder="Todas las marcas" />
+      <FilterSelect
+        value={values.local}
+        onChange={(local) => f.set({ local: local as '' | 'true' | 'false' })}
+        options={[
+          { value: 'true', label: 'Productor local' },
+          { value: 'false', label: 'De marca' },
+        ]}
+        placeholder="Local y de marca"
+      />
       <MultiSelect
         className="h-9 min-h-9 w-full sm:w-56 py-1"
         value={values.tags}

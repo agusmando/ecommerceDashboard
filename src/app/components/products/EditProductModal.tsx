@@ -5,7 +5,7 @@ import { MEASURE_LABEL } from '../../lib/domain';
 import { useAction } from '../../hooks/useAction';
 import { Modal } from '../Modal';
 import { Button } from '../Button';
-import { Field, FormGrid, inputClass, Textarea } from '../Form';
+import { Field, FormGrid, inputClass, SwitchRow, Textarea } from '../Form';
 import { BrandSelect, CategorySelect } from '../CatalogPickers';
 
 export function EditProductModal({ product, isOpen, onClose }: { product: Product; isOpen: boolean; onClose: () => void }) {
@@ -15,6 +15,7 @@ export function EditProductModal({ product, isOpen, onClose }: { product: Produc
   const [measure, setMeasure] = useState<Measure>(product.measure);
   const [categoryId, setCategoryId] = useState<Id | null>(product.categoryId);
   const [brandId, setBrandId] = useState<Id | null>(product.brandId);
+  const [isLocal, setIsLocal] = useState(!!product.isLocal);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export function EditProductModal({ product, isOpen, onClose }: { product: Produc
     setMeasure(product.measure);
     setCategoryId(product.categoryId);
     setBrandId(product.brandId);
+    setIsLocal(!!product.isLocal);
     setError('');
   }, [isOpen, product]);
 
@@ -35,6 +37,7 @@ export function EditProductModal({ product, isOpen, onClose }: { product: Produc
         measure,
         categoryId: categoryId ?? undefined,
         brandId: brandId ?? undefined,
+        isLocal,
       }),
     { success: 'Producto actualizado', error: 'No se pudo actualizar el producto' },
   );
@@ -76,6 +79,7 @@ export function EditProductModal({ product, isOpen, onClose }: { product: Produc
             <BrandSelect value={brandId} onChange={setBrandId} />
           </Field>
         </FormGrid>
+        <SwitchRow label="Productor local" description="Sin marca comercial: en la tienda se muestra «Productor local» en lugar de la marca y aparece en el filtro de productores locales. Cada variante puede cambiarlo." checked={isLocal} onChange={setIsLocal} />
         <Field label="Unidad de medida">
           <select className={inputClass} value={measure} onChange={(e) => setMeasure(e.target.value as Measure)}>
             {MEASURES.map((m) => (

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Minus, Plus, Trash2, Undo2 } from 'lucide-react';
 import { useUpdateVariantMutation, variantsApi, useAdjustVariantStockMutation } from '../../api/resources';
 import type { Id, ProductVariant, UpdateVariantInput } from '../../api/types';
-import { computeFinalPrice, formatPack, formatQty, isMix, priceUnit } from '../../lib/domain';
+import { computeFinalPrice, formatPack, formatQty, fromLocalChoice, isMix, priceUnit, toLocalChoice, type LocalChoice } from '../../lib/domain';
 import { cn, formatCurrency } from '../../lib/utils';
 import { useAction } from '../../hooks/useAction';
 import { Modal } from '../Modal';
@@ -12,7 +12,7 @@ import { Segmented } from '../Filters';
 import { Skeleton } from '../States';
 import { VariantPicker, variantLabel } from '../CatalogPickers';
 import { ImageInput } from './ImageInput';
-import { ROUNDING_OPTIONS } from './VariantFields';
+import { LocalSelect, ROUNDING_OPTIONS } from './VariantFields';
 import { cld } from '../../lib/cloudinary';
 
 export type VariantModalKind = 'price' | 'stock' | 'availability' | 'recipe' | 'images';
@@ -265,7 +265,10 @@ export function AvailabilityModal({ variant, isOpen, onClose }: ModalProps) {
   const [packaging, setPackaging] = useState('');
   const [threshold, setThreshold] = useState('');
   const [requestTime, setRequestTime] = useState('');
+  const [local, setLocal] = useState<LocalChoice>('');
   const [save, busy] = useVariantSave(variant, 'Disponibilidad actualizada', onClose);
+  // Valor del producto: viene incluido o, si la variante hereda, es el que resolvió el API
+  const productIsLocal = variant.product?.isLocal ?? (variant.isLocal == null ? variant.local : undefined);
   const unit = stockUnit(variant);
 
   useEffect(() => {
@@ -274,6 +277,7 @@ export function AvailabilityModal({ variant, isOpen, onClose }: ModalProps) {
     setPackaging((variant.packagingOptions ?? []).join(', '));
     setThreshold(String(variant.stockThreshold ?? 0));
     setRequestTime(variant.requestTime ?? '');
+    setLocal(toLocalChoice(variant.isLocal));
   }, [isOpen, variant]);
 
   return (
@@ -288,12 +292,14 @@ export function AvailabilityModal({ variant, isOpen, onClose }: ModalProps) {
           packagingOptions: parseNumberList(packaging),
           stockThreshold: num(threshold) ?? 0,
           requestTime: requestTime.trim(),
+          isLocal: fromLocalChoice(local),
         })
       }
     >
       <div className="space-y-4">
         <SwitchRow label="Disponible en la web"
           description="Oculta esta variante en la tienda. Si ninguna variante queda visible, el producto deja de aparecer." checked={web} onChange={setWeb} />
+        <LocalSelect value={local} onChange={setLocal} productIsLocal={productIsLocal} />
         <Field label="Presentaciones" hint={`Tamaños en ${unit}, separados por coma. Vacío = venta suelta.`}>
           <input className={inputClass} value={packaging} onChange={(e) => setPackaging(e.target.value)} placeholder="250, 500, 1000" />
         </Field>
