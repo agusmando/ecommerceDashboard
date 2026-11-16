@@ -256,6 +256,12 @@ const extended = api.injectEndpoints({
       invalidatesTags: (_r, e) => (e ? [] : ['ShippingZone']),
     }),
 
+    /** Ajuste de stock (solo stock.manage): fija el inventario o suma/resta. */
+    adjustVariantStock: build.mutation<ProductVariant, { id: Id; body: { currentStock: number } | { stockIncrement: number } }>({
+      query: ({ id, body }) => ({ url: `/product/variant/${id}/stock`, method: 'PUT', data: body }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Variant', 'Product', 'Movement']),
+    }),
+
     /** Carga masiva de movimientos: todos o ninguno (el error indica la fila). */
     createMovementsBulk: build.mutation<{ count: number }, import('./types').MovementInput[]>({
       query: (movements) => ({ url: '/movement/bulk', method: 'POST', data: { movements } }),
@@ -405,6 +411,7 @@ const extended = api.injectEndpoints({
 export const {
   useCreateProductMutation,
   useCreateMovementsBulkMutation,
+  useAdjustVariantStockMutation,
   useUpdateVariantMutation,
   useHealthQuery,
   useShipmentMetaQuery,

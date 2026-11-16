@@ -60,8 +60,8 @@ export default function Inventory() {
   const toggle = useActiveToggle(setActive, 'la variante');
   const can = useCan();
   const canEdit = can('catalog.edit');
-  // El stock se ajusta con PUT /product/variant, que el backend protege con catalog.edit.
-  const canAdjustStock = canEdit && can('stock.manage');
+  // El stock se ajusta con PUT /product/variant/:id/stock (stock.manage).
+  const canAdjustStock = can('stock.manage');
 
   const numOrEmpty = (v: string) => (v.trim() === '' ? '' : Number(v));
 

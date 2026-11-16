@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Minus, Plus, Trash2, Undo2 } from 'lucide-react';
-import { useUpdateVariantMutation, variantsApi } from '../../api/resources';
+import { useUpdateVariantMutation, variantsApi, useAdjustVariantStockMutation } from '../../api/resources';
 import type { Id, ProductVariant, UpdateVariantInput } from '../../api/types';
 import { computeFinalPrice, formatPack, formatQty, isMix, priceUnit } from '../../lib/domain';
 import { cn, formatCurrency } from '../../lib/utils';
@@ -13,6 +13,7 @@ import { Skeleton } from '../States';
 import { VariantPicker, variantLabel } from '../CatalogPickers';
 import { ImageInput } from './ImageInput';
 import { ROUNDING_OPTIONS } from './VariantFields';
+import { cld } from '../../lib/cloudinary';
 
 export type VariantModalKind = 'price' | 'stock' | 'availability' | 'recipe' | 'images';
 
@@ -164,7 +165,12 @@ export function StockModal({ variant, isOpen, onClose }: ModalProps) {
   const [sign, setSign] = useState<'+' | '-'>('+');
   const [amount, setAmount] = useState('');
   const [absolute, setAbsolute] = useState('');
-  const [save, busy] = useVariantSave(variant, 'Stock actualizado', onClose);
+  const [adjust] = useAdjustVariantStockMutation();
+  const [run, busy] = useAction(
+    (body: { currentStock: number } | { stockIncrement: number }) => adjust({ id: variant.id, body }).unwrap(),
+    { success: 'Stock actualizado', error: 'No se pudo actualizar el stock' },
+  );
+  const save = (body: { currentStock: number } | { stockIncrement: number }) => run(body).then(onClose).catch(() => undefined);
   const mix = isMix(variant);
   const unit = stockUnit(variant);
 
@@ -502,7 +508,7 @@ export function ImagesModal({ variant, isOpen, onClose }: ModalProps) {
                       off ? 'border-destructive opacity-40' : 'border-border hover:border-destructive',
                     )}
                   >
-                    <img src={img.secure_url} alt="" className="h-full w-full object-cover" />
+                    <img src={cld(img.secure_url, { w: 240, h: 240 })} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     {off && (
                       <span className="absolute inset-0 flex items-center justify-center">
                         <Trash2 className="w-6 h-6 text-destructive" />

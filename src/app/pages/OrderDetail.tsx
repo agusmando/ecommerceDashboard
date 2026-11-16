@@ -31,6 +31,7 @@ import {
 } from '../lib/domain';
 import { cn, formatCurrency, formatDate, formatDateTime, formatOrderNumber } from '../lib/utils';
 import type { DiscountType } from '../api/types';
+import { cld } from '../lib/cloudinary';
 
 const FLOW: OrderStatus[] = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
 
@@ -166,7 +167,7 @@ export default function OrderDetail() {
       cell: (i) => (
         <div className="flex items-center gap-3 min-w-0">
           {i.productVariant?.images?.[0] ? (
-            <img src={i.productVariant.images[0].secure_url} alt="" className="h-10 w-10 rounded-md object-cover border border-border" />
+            <img src={cld(i.productVariant.images[0].secure_url, { w: 80, h: 80 })} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded-md object-cover border border-border" />
           ) : (
             <div className="h-10 w-10 rounded-md bg-muted" />
           )}

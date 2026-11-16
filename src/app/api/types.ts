@@ -366,6 +366,8 @@ export interface MovementInput {
   productVariantId: Id;
   quantity: number;
   type: Exclude<MovementType, 'PRODUCTION'>;
+  /** Fecha del movimiento (ISO). Vacía = ahora. */
+  createdAt?: string;
 }
 
 // ---------------------------------------------------------------- Órdenes

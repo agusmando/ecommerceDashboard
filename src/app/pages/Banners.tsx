@@ -33,6 +33,7 @@ import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { useConfirm } from '../components/ConfirmProvider';
 import { BannerFormModal } from '../components/banners/BannerFormModal';
 import { formatDims, PLACEMENT_FIELDS, usePlacementSpecs } from '../components/banners/bannerSpecs';
+import { cld } from '../lib/cloudinary';
 
 const sortBanners = (a: Banner, b: Banner) => a.position - b.position || a.id - b.id;
 
@@ -40,7 +41,7 @@ function Thumb({ url, icon, label, className }: { url: string | null; icon: Reac
   return (
     <figure className={cn('relative overflow-hidden rounded-md border border-border bg-muted', className)}>
       {url ? (
-        <img src={url} alt={label} loading="lazy" className="h-full w-full object-cover" />
+        <img src={cld(url, { w: 640 })} alt={label} loading="lazy" decoding="async" className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-muted-foreground">
           <ImageIcon className="w-4 h-4" />

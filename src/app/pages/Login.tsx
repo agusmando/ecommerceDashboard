@@ -7,7 +7,9 @@ import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { FormError } from '../components/States';
 import { useAppDispatch, useAppSelector } from '../store';
-import { clearNotice, signIn } from '../store/authSlice';
+import { clearNotice, signIn, startGoogleSignIn } from '../store/authSlice';
+import { getErrorMessage } from '../api/client';
+import { GoogleIcon } from '../components/auth/GoogleIcon';
 
 const SHOP_URL = (import.meta.env.VITE_SHOP_URL || 'https://canelaenrama.com.ar').replace(/\/+$/, '');
 
@@ -23,6 +25,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   if (status === 'authenticated') return <Navigate to={redirectTo} replace />;
 
@@ -35,6 +38,18 @@ export default function Login() {
     setLoading(false);
     if (signIn.fulfilled.match(res)) navigate(redirectTo, { replace: true });
     else setError(res.payload ?? 'No se pudo iniciar sesión.');
+  };
+
+  const handleGoogle = async () => {
+    setError('');
+    dispatch(clearNotice());
+    setGoogleLoading(true);
+    try {
+      await startGoogleSignIn(redirectTo); // redirige a Google
+    } catch (e) {
+      setError(getErrorMessage(e) || 'No se pudo iniciar el ingreso con Google.');
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -88,14 +103,26 @@ export default function Login() {
             </a>
           </div>
 
-          <Button type="submit" className="w-full" loading={loading}>
+          <Button type="submit" className="w-full" loading={loading} disabled={googleLoading}>
             {!loading && <LogIn className="w-4 h-4" />}
             Ingresar
           </Button>
         </form>
 
+        <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground" role="separator">
+          <span className="h-px flex-1 bg-border" />
+          o
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
+        <Button variant="outline" className="w-full" onClick={handleGoogle} loading={googleLoading} disabled={loading}>
+          {!googleLoading && <GoogleIcon className="w-4 h-4" />}
+          Ingresar con Google
+        </Button>
+
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Acceso solo para el equipo: un administrador te asigna el rol desde <strong>Usuarios</strong>.
+          Acceso solo para el equipo (con email o con Google): un administrador te asigna el rol desde{' '}
+          <strong>Usuarios</strong>.
         </p>
       </Card>
     </AuthLayout>

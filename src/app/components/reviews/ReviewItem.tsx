@@ -12,6 +12,7 @@ import { useConfirm } from '../ConfirmProvider';
 import { RowActions } from '../RowActions';
 import { ReviewModerationModal, type ModerationMode } from './ReviewModerationModal';
 import { Stars } from './Stars';
+import { cld } from '../../lib/cloudinary';
 
 /** Acciones de moderación compartidas por la página de reseñas y el detalle de producto. */
 export function useReviewActions() {
@@ -75,7 +76,7 @@ export function ReviewItem({ review: r, actions, showProduct = true, compact }: 
           title="Ver producto"
         >
           {img ? (
-            <img src={img} alt="" className="h-12 w-12 rounded-md border border-border object-cover" />
+            <img src={cld(img, { w: 96, h: 96 })} alt="" loading="lazy" decoding="async" className="h-12 w-12 rounded-md border border-border object-cover" />
           ) : (
             <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted">
               <ImageIcon className="w-4 h-4 text-muted-foreground" />

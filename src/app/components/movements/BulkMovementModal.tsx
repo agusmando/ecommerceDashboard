@@ -11,6 +11,7 @@ import { Modal } from '../Modal';
 import { inputClass } from '../Form';
 import { FormError } from '../States';
 import { VariantPicker, variantLabel } from '../CatalogPickers';
+import { MovementDateField, movementDateError, movementDateToIso } from './MovementDateField';
 
 type ManualType = MovementInput['type'];
 const TYPES: ManualType[] = ['IN', 'OUT', 'ADJUSTMENT', 'RETURN'];
@@ -49,6 +50,7 @@ export function BulkMovementModal({ isOpen, onClose }: Props) {
   const [rows, setRows] = useState<Row[]>(() => [newRow()]);
   const [error, setError] = useState('');
   const [errorRow, setErrorRow] = useState<number | null>(null);
+  const [date, setDate] = useState('');
   const amountRefs = useRef(new Map<number, HTMLInputElement>());
   const focusKey = useRef<number | null>(null);
 
@@ -57,6 +59,7 @@ export function BulkMovementModal({ isOpen, onClose }: Props) {
     setRows([newRow()]);
     setError('');
     setErrorRow(null);
+    setDate('');
   }, [isOpen]);
 
   // Foco en la cantidad de la fila recién agregada / recién elegida
@@ -104,6 +107,9 @@ export function BulkMovementModal({ isOpen, onClose }: Props) {
     e.preventDefault();
     setError('');
     setErrorRow(null);
+    const dateError = movementDateError(date);
+    if (dateError) return setError(dateError);
+    const createdAt = movementDateToIso(date);
     // Validación local (las filas totalmente vacías se ignoran)
     const body: MovementInput[] = [];
     for (const [i, r] of rows.entries()) {
@@ -118,7 +124,7 @@ export function BulkMovementModal({ isOpen, onClose }: Props) {
         setErrorRow(i + 1);
         return setError(`Fila ${i + 1}: ${problem}.`);
       }
-      body.push({ productVariantId: r.variantId!, type: r.type, quantity: deltaOf(r) });
+      body.push({ productVariantId: r.variantId!, type: r.type, quantity: deltaOf(r), createdAt });
     }
     if (!body.length) return setError('Cargá al menos un movimiento.');
     try {
@@ -161,6 +167,15 @@ export function BulkMovementModal({ isOpen, onClose }: Props) {
     >
       <form id="bulk-movement-form" onSubmit={handleSubmit} className="space-y-3">
         {error && <FormError>{error}</FormError>}
+
+        <div className="max-w-sm">
+          <MovementDateField
+            value={date}
+            onChange={setDate}
+            label="Fecha de los movimientos"
+            hint="Se aplica a todas las filas. Vacía = fecha y hora actual (útil para cargar un remito de otro día)."
+          />
+        </div>
 
         {/* Encabezados (solo escritorio) */}
         <div className="hidden gap-2 px-1 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[2rem_minmax(0,1fr)_9.5rem_11rem_8rem_2.25rem]">

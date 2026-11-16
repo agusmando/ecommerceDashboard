@@ -1,5 +1,6 @@
 import type { BannerPlacement, Dimensions } from '../../api/types';
 import { cn } from '../../lib/utils';
+import { cld } from '../../lib/cloudinary';
 
 export interface PreviewContent {
   eyebrow?: string;
@@ -54,7 +55,7 @@ export function BannerPreview({
         style={{ aspectRatio: String(ratio), backgroundColor: !imageUrl ? backgroundColor || undefined : undefined }}
       >
         {imageUrl ? (
-          <img src={imageUrl} alt={name || ''} className="absolute inset-0 h-full w-full object-cover" />
+          <img src={cld(imageUrl, { w: 1280 })} alt={name || ''} decoding="async" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
           !showCopy && (
             <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">Sin imagen</span>

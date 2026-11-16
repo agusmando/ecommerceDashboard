@@ -21,6 +21,7 @@ import { Pagination } from '../components/Pagination';
 import { useBrandOptions, useCategoryOptions, useTagOptions } from '../components/CatalogPickers';
 import { OfferTag } from '../components/VariantPrice';
 import { CreateProductModal } from '../components/products/CreateProductModal';
+import { cld } from '../lib/cloudinary';
 
 const DEFAULTS = {
   name: '',
@@ -285,7 +286,7 @@ export default function Products() {
                     <div onClick={() => open(p)}>
                       <div className="flex h-36 items-center justify-center bg-muted/50">
                         {img ? (
-                          <img src={img} alt={p.name} className="h-full w-full object-cover" />
+                          <img src={cld(img, { w: 480, h: 288 })} alt={p.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                         ) : (
                           <Package className="w-10 h-10 text-muted-foreground/50" />
                         )}

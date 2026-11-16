@@ -4,6 +4,7 @@ import type { Dimensions } from '../../api/types';
 import { cn } from '../../lib/utils';
 import { Button } from '../Button';
 import { dimensionWarnings, formatDims } from './bannerSpecs';
+import { cld } from '../../lib/cloudinary';
 
 export interface ImageSlot {
   file: File | null;
@@ -77,7 +78,7 @@ export function BannerImageField({ label, hint, required, recommended, existingU
       >
         {url ? (
           <>
-            <img src={url} alt="" className="h-full w-full object-cover" />
+            <img src={cld(url, { w: 800 })} alt="" decoding="async" className="h-full w-full object-cover" />
             <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-sm font-medium text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
               Cambiar imagen
             </span>

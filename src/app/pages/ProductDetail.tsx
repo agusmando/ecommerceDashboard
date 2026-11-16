@@ -37,6 +37,7 @@ import { AddVariantModal } from '../components/products/AddVariantModal';
 import { PackagingChips, useVariantModals } from '../components/products/VariantModals';
 import { VariantPrice } from '../components/VariantPrice';
 import { ProductReviewsCard } from '../components/reviews/ProductReviewsCard';
+import { cld } from '../lib/cloudinary';
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -62,8 +63,8 @@ export default function ProductDetail() {
   const modals = useVariantModals();
   const can = useCan();
   const canEdit = can('catalog.edit');
-  // El stock se ajusta con PUT /product/variant, que el backend protege con catalog.edit.
-  const canAdjustStock = canEdit && can('stock.manage');
+  // El stock se ajusta con PUT /product/variant/:id/stock (stock.manage).
+  const canAdjustStock = can('stock.manage');
 
   const [editing, setEditing] = useState(false);
   const [addingVariant, setAddingVariant] = useState(false);
@@ -118,7 +119,7 @@ export default function ProductDetail() {
       cell: (v) => (
         <div className="flex items-center gap-3">
           {v.images?.[0] ? (
-            <img src={v.images[0].secure_url} alt="" className="h-10 w-10 rounded-md object-cover" />
+            <img src={cld(v.images[0].secure_url, { w: 80, h: 80 })} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded-md object-cover" />
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
               <ImageIcon className="w-4 h-4 text-muted-foreground" />

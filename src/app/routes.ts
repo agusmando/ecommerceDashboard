@@ -13,6 +13,7 @@ const page = (load: () => Promise<{ default: React.ComponentType }>) => async ()
 export const router = createBrowserRouter([
   { path: '/', loader: () => redirect('/dashboard') },
   { path: '/login', Component: Login },
+  { path: '/auth/callback/google', lazy: page(() => import('./pages/GoogleCallback')) },
   {
     path: '/dashboard',
     Component: DashboardLayout,

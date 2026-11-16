@@ -10,6 +10,7 @@ import { Modal } from '../Modal';
 import { AffixInput, Field } from '../Form';
 import { Segmented } from '../Filters';
 import { FormError } from '../States';
+import { MovementDateField, movementDateError, movementDateToIso } from './MovementDateField';
 import { VariantPicker, variantLabel } from '../CatalogPickers';
 
 type ManualType = MovementInput['type'];
@@ -30,6 +31,7 @@ export function MovementFormModal({ isOpen, onClose, defaultVariantId }: Props) 
   const [sign, setSign] = useState<'+' | '-'>('+');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
+  const [date, setDate] = useState('');
 
   // Datos frescos de la variante (stock actual) desde la cache compartida.
   const { data: fetched } = variantsApi.useOne(variantId);
@@ -43,6 +45,7 @@ export function MovementFormModal({ isOpen, onClose, defaultVariantId }: Props) 
     setSign('+');
     setAmount('');
     setError('');
+    setDate('');
   }, [isOpen, defaultVariantId]);
 
   const measure = variant?.contentMeasure;
@@ -61,9 +64,11 @@ export function MovementFormModal({ isOpen, onClose, defaultVariantId }: Props) 
     e.preventDefault();
     if (!variantId) return setError('Elegí una variante.');
     if (!(abs > 0) || !Number.isInteger(abs)) return setError(`Ingresá una cantidad entera mayor a 0 (${unit}).`);
+    const dateError = movementDateError(date);
+    if (dateError) return setError(dateError);
     setError('');
     try {
-      await submit({ productVariantId: variantId, quantity: delta, type });
+      await submit({ productVariantId: variantId, quantity: delta, type, createdAt: movementDateToIso(date) });
       onClose();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -141,6 +146,8 @@ export function MovementFormModal({ isOpen, onClose, defaultVariantId }: Props) 
             </div>
           </div>
         </Field>
+
+        <MovementDateField value={date} onChange={setDate} />
 
         {variant && abs > 0 && (
           <div
