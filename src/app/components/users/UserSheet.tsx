@@ -135,9 +135,10 @@ export function UserSheet({ user, isSelf, onClose }: { user: ManagedUser | null;
               <div className="space-y-3">
                 <RolePicker roles={roles} value={choice} onChange={setChoice} disabled={saving} name="sheet-role" />
                 {googleOnly && choice && (
-                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
-                    Esta cuenta entra con Google y el panel pide email y contraseña. Para darle acceso, usá{' '}
-                    <strong>Invitar al equipo</strong> con su email: se le crea una cuenta con contraseña para el panel.
+                  <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                    Esta cuenta entra con Google: va a poder entrar al panel con <strong>Continuar con Google</strong>. Si además
+                    quiere contraseña, que use «¿Olvidaste tu contraseña?» (con la vinculación de cuentas activa se agrega a esta
+                    misma cuenta).
                   </p>
                 )}
                 <FormError>{error}</FormError>
