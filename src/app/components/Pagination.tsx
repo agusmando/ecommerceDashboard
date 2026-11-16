@@ -39,7 +39,7 @@ export function Pagination({
           'Sin resultados'
         )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         {onPageSizeChange && (
           <label className="flex items-center gap-2 text-muted-foreground">
             Por página

@@ -162,7 +162,7 @@ export function GoogleReviewsPanel() {
           value={place.userRatingCount != null ? formatNumber(place.userRatingCount) : '—'}
           hint={`${reviews.length} guardadas · ${featured} en la web`}
         />
-        <Card className="flex flex-col justify-between gap-3 p-5">
+        <Card className="flex flex-col justify-between gap-3 p-4 sm:p-5">
           <div>
             <div className="text-sm text-muted-foreground">Última sincronización</div>
             <div className="mt-1 font-medium" title={place.lastSyncAt ? formatDateTime(place.lastSyncAt) : undefined}>
@@ -186,7 +186,7 @@ export function GoogleReviewsPanel() {
         </Card>
       </div>
 
-      <Card className="p-0 overflow-hidden">
+      <Card className="p-0 sm:p-0 overflow-hidden">
         <div className="flex flex-col gap-1 border-b border-border p-4">
           <CardTitle>{place.name ? `Reseñas de ${place.name}` : 'Reseñas de Google'}</CardTitle>
           <p className="flex items-start gap-1.5 text-xs text-muted-foreground">

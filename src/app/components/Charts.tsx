@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import { formatCurrency, formatNumber } from '../lib/utils';
+import { useIsMobile } from './ui/use-mobile';
 
 /**
  * Gráficos de una sola serie con estilo común: color de marca (--chart-1),
@@ -109,6 +110,10 @@ export function RankingBars<T extends Record<string, unknown>>({
   currency?: boolean;
 }) {
   const height = Math.max(120, data.length * 36 + 16);
+  // En pantallas chicas se acorta la columna de etiquetas para dejar lugar a las barras.
+  const isMobile = useIsMobile();
+  const labelWidth = isMobile ? 96 : 150;
+  const maxChars = isMobile ? 14 : 22;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }} barCategoryGap={8}>
@@ -126,8 +131,8 @@ export function RankingBars<T extends Record<string, unknown>>({
           tick={{ ...AXIS, fill: 'var(--foreground)' }}
           axisLine={false}
           tickLine={false}
-          width={150}
-          tickFormatter={(v: string) => (v.length > 22 ? `${v.slice(0, 21)}…` : v)}
+          width={labelWidth}
+          tickFormatter={(v: string) => (v.length > maxChars ? `${v.slice(0, maxChars - 1)}…` : v)}
         />
         <Tooltip
           cursor={{ fill: 'var(--muted)', opacity: 0.5 }}
@@ -163,9 +168,9 @@ export function DistributionBar({
       </div>
       <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
         {segments.map((s) => (
-          <li key={s.key} className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 rounded-sm ${s.className}`} />
-            <span className="text-muted-foreground">{s.label}</span>
+          <li key={s.key} className="flex min-w-0 items-center gap-2">
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${s.className}`} />
+            <span className="min-w-0 truncate text-muted-foreground">{s.label}</span>
             <span className="ml-auto font-medium tabular-nums text-foreground">{s.value}</span>
           </li>
         ))}

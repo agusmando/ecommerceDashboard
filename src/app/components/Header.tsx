@@ -43,7 +43,7 @@ export function Header({ title, onMenuClick }: HeaderProps) {
         <Menu className="w-5 h-5" />
       </button>
 
-      {title && <div className="font-medium text-foreground lg:hidden truncate">{title}</div>}
+      {title && <div className="min-w-0 font-medium text-foreground lg:hidden truncate">{title}</div>}
 
       <form onSubmit={handleSearch} className="hidden sm:block flex-1 max-w-md">
         <div className="relative">

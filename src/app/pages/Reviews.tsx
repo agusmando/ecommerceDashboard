@@ -45,7 +45,7 @@ function ProductReviews() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Pendientes" value={s?.pending ?? '—'} icon={<Clock className="w-5 h-5" />} loading={stats.isLoading} hint="Esperan moderación" />
         <StatTile label="Aprobadas" value={s?.approved ?? '—'} icon={<CheckCircle2 className="w-5 h-5" />} loading={stats.isLoading} hint="Visibles en la web" />
         <StatTile label="Rechazadas" value={s?.rejected ?? '—'} icon={<XCircle className="w-5 h-5" />} loading={stats.isLoading} />
@@ -71,7 +71,7 @@ function ProductReviews() {
         />
       </div>
 
-      <Card className="p-0 overflow-hidden">
+      <Card className="p-0 sm:p-0 overflow-hidden">
         <div className="border-b border-border p-3 sm:p-4">
           <FilterBar activeCount={f.activeCount} onReset={f.reset}>
             <SearchInput value={f.values.search} onChange={(search) => f.set({ search })} placeholder="Buscar en título o comentario…" />

@@ -200,12 +200,12 @@ export function MasterPage<T extends MasterRow>({ config }: { config: MasterConf
             {liveDetail && (
               <>
                 <SheetHeader className="border-b border-border">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <SheetTitle className="text-lg">{liveDetail.name}</SheetTitle>
                     <ActiveBadge active={liveDetail.active} />
                   </div>
                   <SheetDescription>Detalle y relaciones</SheetDescription>
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex flex-wrap gap-2 pt-2">
                     <Button size="sm" variant="outline" onClick={() => setEditing(liveDetail)}>
                       <Pencil className="w-4 h-4" />
                       Editar

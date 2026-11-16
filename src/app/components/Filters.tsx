@@ -20,7 +20,7 @@ export function FilterBar({
   return (
     <div className={cn('flex flex-col gap-2 lg:flex-row lg:items-center', className)}>
       <div className="flex flex-1 flex-wrap items-center gap-2">{children}</div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {onReset && activeCount > 0 && (
           <Button variant="ghost" size="sm" onClick={onReset}>
             <FilterX className="w-4 h-4" />
@@ -100,7 +100,7 @@ export function FilterSelect<V extends string>({
       value={value}
       onChange={(e) => onChange(e.target.value as V | '')}
       className={cn(
-        'h-9 rounded-lg border border-border bg-input-background px-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring',
+        'h-9 max-w-full rounded-lg border border-border bg-input-background px-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring',
         value ? 'text-foreground' : 'text-muted-foreground',
         className,
       )}
@@ -186,13 +186,13 @@ export function DateFilter({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex h-9 items-center gap-2 rounded-lg border border-border bg-input-background px-2.5 text-sm text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
+    <label className="flex h-9 max-w-full items-center gap-2 rounded-lg border border-border bg-input-background px-2.5 text-sm text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
       {label}
       <input
         type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-transparent text-foreground focus:outline-none [color-scheme:light] dark:[color-scheme:dark]"
+        className="min-w-0 bg-transparent text-foreground focus:outline-none [color-scheme:light] dark:[color-scheme:dark]"
       />
     </label>
   );

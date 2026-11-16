@@ -141,7 +141,7 @@ export default function Restock() {
                     <div className="text-[11px] text-muted-foreground">g / u</div>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 text-xs text-muted-foreground">
                   <span>
                     {g.lines} {g.lines === 1 ? 'línea' : 'líneas'} · {g.orders.size} {g.orders.size === 1 ? 'orden' : 'órdenes'}
                     {g.nextDate && ` · ${formatDate(g.nextDate)}`}

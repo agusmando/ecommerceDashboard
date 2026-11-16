@@ -43,7 +43,7 @@ export default function Administration() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader className="flex items-center justify-between">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Server className="w-4 h-4 text-muted-foreground" />
               <CardTitle>Conexión con la API</CardTitle>

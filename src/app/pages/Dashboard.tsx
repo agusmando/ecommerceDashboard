@@ -92,7 +92,7 @@ export default function Dashboard() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader className="flex items-center justify-between gap-2">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <CardTitle>Ventas por día</CardTitle>
               <p className="text-sm text-muted-foreground">Total de órdenes no canceladas</p>
@@ -116,7 +116,7 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader className="flex items-center justify-between">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle>Stock bajo</CardTitle>
             <Link to="/dashboard/inventory" className="text-sm font-medium text-primary hover:underline">
               Inventario
@@ -141,7 +141,7 @@ export default function Dashboard() {
                       onClick={() => goInventory(v)}
                       className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted/60"
                     >
-                      <AlertTriangle className={lvl.tone === 'danger' ? 'w-4 h-4 text-red-500' : 'w-4 h-4 text-amber-500'} />
+                      <AlertTriangle className={lvl.tone === 'danger' ? 'w-4 h-4 shrink-0 text-red-500' : 'w-4 h-4 shrink-0 text-amber-500'} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{variantLabel(v)}</div>
                         <div className="text-xs text-muted-foreground">
@@ -158,10 +158,10 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card className="p-0 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-amber-500" />
+      <Card className="p-0 sm:p-0 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 py-4 border-b border-border">
+          <div className="flex min-w-0 items-center gap-2">
+            <Clock className="w-4 h-4 shrink-0 text-amber-500" />
             <CardTitle>Órdenes pendientes de confirmar</CardTitle>
           </div>
           <ViewAllButton onClick={() => {
@@ -170,7 +170,7 @@ export default function Dashboard() {
           }} />
         </div>
         {pending.isLoading ? (
-          <div className="p-6 space-y-3">
+          <div className="p-4 sm:p-6 space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-8" />
             ))}
@@ -183,11 +183,11 @@ export default function Dashboard() {
               <li key={o.id}>
                 <Link
                   to={`/dashboard/orders/${o.id}`}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-6 py-3 text-sm hover:bg-muted/40"
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-6 py-3 text-sm hover:bg-muted/40"
                 >
                   <span className="font-mono font-medium">{formatOrderNumber(o.id)}</span>
                   <span className="text-muted-foreground">{formatRelative(o.createdAt)}</span>
-                  <span className="truncate text-muted-foreground">{o.user?.email ?? o.userSuperTokensId.slice(0, 8)}</span>
+                  <span className="min-w-0 max-w-full truncate text-muted-foreground">{o.user?.email ?? o.userSuperTokensId.slice(0, 8)}</span>
                   <span className="ml-auto font-medium tabular-nums">{formatCurrency(o.totalPrice)}</span>
                   <OrderStatusBadge status={o.status} />
                 </Link>

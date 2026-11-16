@@ -68,7 +68,7 @@ export function ConfirmDialog({
             }`}
           />
         </div>
-        <div className="flex-1 text-sm text-foreground pt-1">{message}</div>
+        <div className="min-w-0 flex-1 break-words text-sm text-foreground pt-1">{message}</div>
       </div>
     </Modal>
   );

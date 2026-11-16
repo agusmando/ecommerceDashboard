@@ -126,7 +126,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         className={cn(
           'bg-sidebar border-r border-sidebar-border flex flex-col flex-shrink-0 transition-all duration-300',
           'fixed inset-y-0 left-0 z-50 w-64 lg:static lg:translate-x-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          // invisible: con el menú cerrado en mobile, sus links no reciben foco con Tab
+          mobileOpen ? 'translate-x-0' : '-translate-x-full invisible lg:visible',
           isCollapsed && 'lg:w-[72px]',
         )}
       >
@@ -164,6 +165,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                     <NavLink
                       to={item.path}
                       end={item.end}
+                      onClick={onMobileClose}
                       className={({ isActive }) =>
                         cn(
                           'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',

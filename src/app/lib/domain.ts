@@ -1,4 +1,5 @@
 import type {
+  PaymentStatus,
   Banner,
   BannerPlacement,
   BannerSize,
@@ -52,6 +53,16 @@ export const PAYMENT_LABEL: Record<PaymentType, string> = {
   CASH: 'Efectivo',
   TRANSFER: 'Transferencia',
   MERCADOPAGO: 'Mercado Pago',
+};
+
+export const PAYMENT_STATUS: Record<PaymentStatus, { label: string; tone: Tone }> = {
+  PENDING: { label: 'Pago pendiente', tone: 'warning' },
+  IN_PROCESS: { label: 'Pago en revisión', tone: 'info' },
+  APPROVED: { label: 'Pagado', tone: 'success' },
+  REJECTED: { label: 'Pago rechazado', tone: 'danger' },
+  CANCELLED: { label: 'Pago cancelado', tone: 'default' },
+  REFUNDED: { label: 'Devuelto', tone: 'default' },
+  CHARGED_BACK: { label: 'Contracargo', tone: 'danger' },
 };
 
 export const paymentLabel = (p: string) => PAYMENT_LABEL[p as PaymentType] ?? p;

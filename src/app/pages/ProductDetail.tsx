@@ -218,7 +218,7 @@ export default function ProductDetail() {
         backTo="/dashboard/products"
         backLabel="Productos"
         title={
-          <span className="flex items-center gap-3">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {product.name}
             <ActiveBadge active={product.active} />
           </span>
@@ -282,7 +282,7 @@ export default function ProductDetail() {
               ))}
             </div>
             <div className="flex gap-2">
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <TagMultiSelect value={newTags} onChange={setNewTags} exclude={tags.map((t) => t.id)} />
               </div>
               <Button
@@ -302,7 +302,7 @@ export default function ProductDetail() {
         </Card>
 
         <Card>
-          <CardHeader className="flex items-center justify-between">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle>Ofertas</CardTitle>
             <Link to="/dashboard/offers" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
               Gestionar <ExternalLink className="w-3 h-3" />
@@ -329,8 +329,8 @@ export default function ProductDetail() {
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold">Variantes</h2>
             <p className="text-sm text-muted-foreground">Precio, stock, disponibilidad y recetas por variante.</p>
           </div>

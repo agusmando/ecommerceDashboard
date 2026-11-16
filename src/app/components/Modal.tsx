@@ -51,30 +51,30 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
         aria-labelledby={titleId}
         className={cn(
           'relative bg-card border border-border shadow-xl w-full sm:mx-4',
-          'rounded-t-xl sm:rounded-xl max-h-[92vh] flex flex-col',
+          'rounded-t-xl sm:rounded-xl max-h-[92dvh] flex flex-col',
           'animate-in fade-in-0 zoom-in-95 duration-150',
           sizes[size],
         )}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-border">
-          <div>
-            <h2 id={titleId} className="text-lg font-semibold text-foreground">{title}</h2>
+        <div className="flex items-start justify-between gap-4 px-4 sm:px-6 py-4 border-b border-border">
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-lg font-semibold text-foreground break-words">{title}</h2>
             {description && <p className="text-sm text-muted-foreground mt-0.5">{description}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="p-1 -m-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            className="shrink-0 p-1 -m-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">{children}</div>
 
         {footer && (
-          <div className="flex flex-wrap items-center justify-end gap-2 px-6 py-4 border-t border-border bg-muted/30 rounded-b-xl">
+          <div className="flex flex-wrap items-center justify-end gap-2 px-4 sm:px-6 py-4 border-t border-border bg-muted/30 rounded-b-xl">
             {footer}
           </div>
         )}

@@ -62,7 +62,7 @@ export function DataTable<T>({
   const showError = !!error && !rows;
 
   return (
-    <Card className={cn('p-0 overflow-hidden', className)}>
+    <Card className={cn('p-0 sm:p-0 overflow-hidden', className)}>
       {toolbar && <div className="border-b border-border p-3 sm:p-4">{toolbar}</div>}
 
       {showSkeleton ? (

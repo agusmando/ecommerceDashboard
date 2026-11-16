@@ -7,12 +7,12 @@ import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { DataTable, type Column } from '../components/DataTable';
 import { DateFilter, FilterBar, FilterSelect, SearchInput, Segmented } from '../components/Filters';
-import { OrderStatusBadge } from '../components/Badge';
+import { Badge, OrderStatusBadge } from '../components/Badge';
 import { RowActions } from '../components/RowActions';
 import { CreateOrderModal } from '../components/orders/CreateOrderModal';
 import { nextStatuses, useOrderStatusChange } from '../components/orders/useOrderStatusChange';
 import { useListFilters } from '../hooks/useListFilters';
-import { ORDER_STATUS, paymentLabel } from '../lib/domain';
+import { ORDER_STATUS, PAYMENT_STATUS, paymentLabel } from '../lib/domain';
 import { formatCurrency, formatDate, formatDateTime, formatOrderNumber, formatRelative } from '../lib/utils';
 
 const DEFAULTS = {
@@ -103,7 +103,19 @@ export default function Orders() {
       hideOnMobile: true,
       cell: (o) => <span className="tabular-nums">{o.orderItems?.length ?? o.totalItems}</span>,
     },
-    { key: 'payment', header: 'Pago', hideOnMobile: true, cell: (o) => paymentLabel(o.paymentType) },
+    {
+      key: 'payment',
+      header: 'Pago',
+      hideOnMobile: true,
+      cell: (o) => (
+        <div className="flex flex-col items-start gap-1">
+          <span>{paymentLabel(o.paymentType)}</span>
+          {o.paymentType === 'MERCADOPAGO' && o.paymentStatus && (
+            <Badge tone={PAYMENT_STATUS[o.paymentStatus].tone}>{PAYMENT_STATUS[o.paymentStatus].label}</Badge>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'total',
       header: 'Total',

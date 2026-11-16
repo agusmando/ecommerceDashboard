@@ -78,7 +78,7 @@ function BannerCard({
   const isAnnouncement = b.placement === 'ANNOUNCEMENT_BAR';
 
   return (
-    <Card className={cn('flex flex-col gap-4 p-4', !b.active && 'opacity-70')}>
+    <Card className={cn('flex flex-col gap-4 p-4 sm:p-4', !b.active && 'opacity-70')}>
       {isAnnouncement ? (
         <div
           className="rounded-md bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground"
@@ -276,7 +276,7 @@ export default function Banners() {
         />
       </div>
 
-      <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="flex flex-col gap-3 p-4 sm:p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 space-y-1">
           <div className="font-medium">{spec.label}</div>
           <p className="text-sm text-muted-foreground">{spec.description}</p>

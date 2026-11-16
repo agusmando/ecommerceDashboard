@@ -20,6 +20,14 @@ export function DashboardLayout() {
 
   useEffect(() => setMobileOpen(false), [location.pathname]);
 
+  // Drawer mobile: Escape lo cierra.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMobileOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
+
   useEffect(() => {
     document.title = handle.title ? `${handle.title} · Canela en Rama` : 'Canela en Rama · Admin';
   }, [handle.title]);

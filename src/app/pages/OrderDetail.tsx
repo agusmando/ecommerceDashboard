@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
 import { Check, Clock, CreditCard, PackageX, RotateCcw, Truck, User, XCircle } from 'lucide-react';
-import { ordersApi } from '../api/resources';
+import { ordersApi, useSyncOrderPaymentMutation } from '../api/resources';
 import type { Order, OrderItem, OrderStatus } from '../api/types';
 import { PageHeader } from '../components/PageHeader';
 import { Card, CardTitle } from '../components/Card';
@@ -19,6 +19,7 @@ import {
   CLOSED_ITEM_STATUSES,
   DISCOUNT_TYPE,
   ORDER_STATUS,
+  PAYMENT_STATUS,
   describeItemQty,
   itemTotal,
   paymentLabel,
@@ -45,11 +46,11 @@ function StatusStepper({ status }: { status: OrderStatus }) {
         const done = i < current || status === 'DELIVERED';
         const active = i === current;
         return (
-          <li key={s} className={cn('flex items-center', i < FLOW.length - 1 && 'flex-1')}>
+          <li key={s} className={cn('flex min-w-0 items-center', i < FLOW.length - 1 && 'flex-1')}>
             <div className="flex flex-col items-center gap-1.5 min-w-0">
               <span
                 className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold',
                   done && 'border-primary bg-primary text-primary-foreground',
                   active && !done && 'border-primary text-primary bg-primary/10',
                   !done && !active && 'border-border text-muted-foreground',
@@ -57,12 +58,12 @@ function StatusStepper({ status }: { status: OrderStatus }) {
               >
                 {done ? <Check className="w-4 h-4" /> : i + 1}
               </span>
-              <span className={cn('text-xs whitespace-nowrap', active || done ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+              <span className={cn('text-center text-[11px] leading-tight sm:text-xs sm:whitespace-nowrap', active || done ? 'text-foreground font-medium' : 'text-muted-foreground')}>
                 {ORDER_STATUS[s].label}
               </span>
             </div>
             {i < FLOW.length - 1 && (
-              <div className={cn('mx-2 mb-5 h-0.5 flex-1 rounded', i < current ? 'bg-primary' : 'bg-border')} />
+              <div className={cn('mx-1 mb-5 h-0.5 min-w-2 flex-1 rounded sm:mx-2', i < current ? 'bg-primary' : 'bg-border')} />
             )}
           </li>
         );
@@ -270,7 +271,7 @@ export default function OrderDetail() {
         backTo="/dashboard/orders"
         backLabel="Órdenes"
         title={
-          <span className="flex items-center gap-3">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             Orden {formatOrderNumber(order.id)}
             <OrderStatusBadge status={order.status} />
           </span>
@@ -317,6 +318,7 @@ export default function OrderDetail() {
             </InfoRow>
             <InfoRow icon={<CreditCard className="w-4 h-4" />} label="Medio de pago">
               {paymentLabel(order.paymentType)}
+              {order.paymentType === 'MERCADOPAGO' && <MercadoPagoStatus order={order} />}
             </InfoRow>
             <InfoRow icon={<Clock className="w-4 h-4" />} label="Entrega / retiro estimado">
               {order.estimatedReadyAt ? formatDateTime(order.estimatedReadyAt) : 'Inmediata'}
@@ -358,5 +360,34 @@ function OrderTotals({ order, subtotal, discounts }: { order: Order; subtotal: n
         </Badge>
       )}
     </Card>
+  );
+}
+
+/** Estado del cobro en Mercado Pago + botón para re-consultarlo (por si el webhook no llegó). */
+function MercadoPagoStatus({ order }: { order: Order }) {
+  const [sync, { isLoading }] = useSyncOrderPaymentMutation();
+  const [run, busy] = useAction(() => sync(order.id).unwrap(), {
+    success: (o) => `Pago: ${PAYMENT_STATUS[o.paymentStatus ?? 'PENDING'].label}`,
+  });
+  const status = order.paymentStatus ?? 'PENDING';
+  return (
+    <div className="mt-1.5 space-y-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={PAYMENT_STATUS[status].tone} dot>
+          {PAYMENT_STATUS[status].label}
+        </Badge>
+        <Button size="sm" variant="outline" onClick={() => run()} disabled={busy || isLoading}>
+          <RotateCcw className="w-3.5 h-3.5" /> Consultar en Mercado Pago
+        </Button>
+      </div>
+      {order.paidAt && <div className="text-xs text-muted-foreground">Acreditado el {formatDateTime(order.paidAt)}</div>}
+      {order.paymentId && <div className="font-mono text-xs text-muted-foreground">Pago #{order.paymentId}</div>}
+      {order.paymentStatusDetail === 'paid_after_cancel' && (
+        <div className="text-xs font-medium text-red-600">Se pagó después de cancelar: hay que reintegrar el pago desde Mercado Pago.</div>
+      )}
+      {order.paymentStatusDetail === 'amount_mismatch' && (
+        <div className="text-xs font-medium text-red-600">El importe pagado no coincide con el total: revisalo en Mercado Pago.</div>
+      )}
+    </div>
   );
 }

@@ -133,8 +133,8 @@ export function FormGrid({ children, cols = 2, className }: { children: ReactNod
 export function FormSection({ title, description, children, actions }: { title: string; description?: ReactNode; children: ReactNode; actions?: ReactNode }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-end justify-between gap-2">
-        <div>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
         </div>

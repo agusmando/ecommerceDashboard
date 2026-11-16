@@ -274,7 +274,7 @@ export default function Products() {
                 return (
                   <Card
                     key={p.id}
-                    className={cn('group cursor-pointer overflow-hidden p-0 transition-shadow hover:shadow-md', !p.active && 'opacity-60')}
+                    className={cn('group cursor-pointer overflow-hidden p-0 sm:p-0 transition-shadow hover:shadow-md', !p.active && 'opacity-60')}
                   >
                     <div onClick={() => open(p)}>
                       <div className="flex h-36 items-center justify-center bg-muted/50">
@@ -310,7 +310,7 @@ export default function Products() {
             </div>
           )}
           {!!rows?.length && (
-            <Card className="p-0">
+            <Card className="p-0 sm:p-0">
               <Pagination {...pagination} pagination={pagination.info} disabled={query.isFetching} />
             </Card>
           )}

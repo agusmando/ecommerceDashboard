@@ -405,7 +405,7 @@ export function RecipeModal({ variant, isOpen, onClose }: ModalProps) {
                   <div className={cn('truncate text-sm', l.removed && 'line-through')}>{l.label}</div>
                   {l.original === undefined && <div className="text-xs text-emerald-600">Nuevo</div>}
                 </div>
-                <div className="w-32">
+                <div className="w-24 shrink-0 sm:w-32">
                   <AffixInput
                     suffix={l.measure === 'KG' ? 'g' : 'u'}
                     type="number"

@@ -251,6 +251,14 @@ const extended = api.injectEndpoints({
       invalidatesTags: (_r, e) => (e ? [] : ['Review']),
     }),
 
+    // ------------------------------------------------------------ Pagos (Mercado Pago)
+
+    /** Re-consulta en Mercado Pago el pago de una orden y devuelve la orden actualizada. */
+    syncOrderPayment: build.mutation<import('./types').Order, Id>({
+      query: (orderId) => ({ url: `/payment/order/${orderId}/sync`, method: 'POST' }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Order']),
+    }),
+
     // ------------------------------------------------------------ Reseñas de Google
 
     googleReviews: build.query<GoogleReviewsResponse, void>({
@@ -323,6 +331,7 @@ export const {
   useDeleteReviewMutation,
   useGoogleReviewsQuery,
   useSyncGoogleReviewsMutation,
+  useSyncOrderPaymentMutation,
   useUpdateGoogleReviewMutation,
   useBannerPlacementsQuery,
   useCreateBannerMutation,

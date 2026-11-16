@@ -327,6 +327,7 @@ export type OrderItemStatus = (typeof ORDER_ITEM_STATUSES)[number];
 
 export const PAYMENT_TYPES = ['DEBIT', 'CREDIT', 'CASH', 'TRANSFER', 'MERCADOPAGO'] as const;
 export type PaymentType = (typeof PAYMENT_TYPES)[number];
+export type PaymentStatus = 'PENDING' | 'IN_PROCESS' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'REFUNDED' | 'CHARGED_BACK';
 
 /** Transiciones válidas para staff (espejo de ORDER_TRANSITIONS del backend). */
 export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -365,6 +366,11 @@ export interface Order {
   totalPrice: number;
   totalItems: number;
   paymentType: PaymentType | string;
+  /** Estado del cobro online (Mercado Pago). En otros medios queda PENDING y se gestiona a mano. */
+  paymentStatus?: PaymentStatus;
+  paymentStatusDetail?: string | null;
+  paymentId?: string | null;
+  paidAt?: ISODate | null;
   estimatedReadyAt: ISODate | null;
   status: OrderStatus;
   orderItems?: OrderItem[];

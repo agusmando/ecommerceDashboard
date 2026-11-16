@@ -37,7 +37,7 @@ export default function Login() {
 
   return (
     <AuthLayout>
-      <Card className="p-8">
+      <Card className="p-6 sm:p-8">
         <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold text-foreground">Panel de administración</h1>
           <p className="mt-1 text-sm text-muted-foreground">Ingresá con tu usuario de staff</p>

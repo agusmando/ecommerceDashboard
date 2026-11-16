@@ -99,7 +99,8 @@ export default function Statistics() {
             ) : !s.byPayment.length ? (
               <EmptyState title="Sin datos" className="py-6" />
             ) : (
-              <table className="w-full text-sm">
+              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+              <table className="w-full min-w-[22rem] text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="pb-2 font-medium">Medio</th>
@@ -129,6 +130,7 @@ export default function Statistics() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </Card>
         </div>
