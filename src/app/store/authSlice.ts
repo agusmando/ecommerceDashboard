@@ -2,8 +2,7 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { ApiError, request, tokens } from '../api/client';
 import { api } from '../api/baseApi';
 import type { User } from '../api/types';
-
-export const STAFF_ROLES = ['ADMIN', 'EMPLOYEE'];
+import { hasPermission } from '../lib/permissions';
 
 export type AuthStatus = 'checking' | 'authenticated' | 'anonymous';
 
@@ -30,8 +29,7 @@ interface SignInResponse {
 
 const fetchMe = () => request<User>({ url: '/user/me' });
 
-const isStaff = (user: User) =>
-  (user.roles ?? []).some((r) => STAFF_ROLES.includes(r)) || STAFF_ROLES.includes(user.role);
+const isStaff = (user: User) => hasPermission(user, 'dashboard.access');
 
 export const signIn = createAsyncThunk<User, { email: string; password: string }, { rejectValue: string }>(
   'auth/signIn',
@@ -62,7 +60,7 @@ export const signIn = createAsyncThunk<User, { email: string; password: string }
       if (!isStaff(user)) {
         await request({ url: '/auth/signout', method: 'POST' }).catch(() => undefined);
         tokens.clear();
-        return rejectWithValue('Tu usuario no tiene rol de staff (ADMIN o EMPLOYEE).');
+        return rejectWithValue('Tu usuario no tiene acceso al panel. Pedile a un administrador que te asigne un rol.');
       }
       return user;
     } catch (e) {
@@ -84,7 +82,8 @@ export const restoreSession = createAsyncThunk<User, void, { rejectValue: string
       }
       return user;
     } catch (e) {
-      tokens.clear();
+      // 401 ya lo resolvió el cliente (intentó renovar y, si no pudo, limpió los tokens).
+      // Errores de red / cold start del backend: conservamos los tokens para el próximo intento.
       return rejectWithValue(e instanceof ApiError ? e.message : 'Sesión inválida');
     }
   },

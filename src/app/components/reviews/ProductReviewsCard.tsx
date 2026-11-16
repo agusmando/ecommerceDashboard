@@ -4,6 +4,7 @@ import { reviewsApi, useReviewSummaryQuery } from '../../api/resources';
 import type { Product } from '../../api/types';
 import { useAppDispatch } from '../../store';
 import { patchFilters } from '../../store/filtersSlice';
+import { useCan } from '../../hooks/useCan';
 import { Card, CardHeader, CardTitle } from '../Card';
 import { Button } from '../Button';
 import { ErrorState, Skeleton } from '../States';
@@ -19,6 +20,8 @@ export function ProductReviewsCard({ product }: { product: Pick<Product, 'id' | 
   const summary = useReviewSummaryQuery(product.id);
   const latest = reviewsApi.usePage({ productId: product.id, orderBy: 'recent', amountPerPage: LATEST });
   const actions = useReviewActions();
+  // La página de reseñas (y la moderación) requiere content.edit.
+  const canModerate = useCan()('content.edit');
   const s = summary.data;
   const rows = latest.data?.content ?? [];
   const total = latest.data?.pagination.totalAmount ?? 0;
@@ -37,9 +40,11 @@ export function ProductReviewsCard({ product }: { product: Pick<Product, 'id' | 
     <Card>
       <CardHeader className="flex flex-wrap items-center justify-between gap-2">
         <CardTitle>Reseñas</CardTitle>
-        <Button variant="ghost" size="sm" onClick={openAll} disabled={!total}>
-          Ver todas{total ? ` (${total})` : ''} <ArrowUpRight className="w-4 h-4" />
-        </Button>
+        {canModerate && (
+          <Button variant="ghost" size="sm" onClick={openAll} disabled={!total}>
+            Ver todas{total ? ` (${total})` : ''} <ArrowUpRight className="w-4 h-4" />
+          </Button>
+        )}
       </CardHeader>
 
       <div className="grid gap-6 md:grid-cols-[220px_1fr]">

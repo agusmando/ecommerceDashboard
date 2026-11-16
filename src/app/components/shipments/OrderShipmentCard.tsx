@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ArrowUpRight, Plus, RefreshCw, Truck } from 'lucide-react';
 import { useShipmentByOrderQuery } from '../../api/resources';
 import type { Order } from '../../api/types';
-import { SHIPMENT_METHOD } from '../../lib/domain';
+import { SHIPMENT_METHOD, orderShippingCost, shippingProviderLabel } from '../../lib/domain';
 import { formatDate } from '../../lib/utils';
 import { Card, CardTitle } from '../Card';
 import { Button } from '../Button';
@@ -12,6 +12,7 @@ import { ErrorState, Skeleton } from '../States';
 import { CopyCode, formatShipmentAddress, ShipmentTimeline, useShipmentTransitions } from './ShipmentParts';
 import { ShipmentFormModal } from './ShipmentFormModal';
 import { ShipmentStatusModal } from './ShipmentStatusModal';
+import { CourierPanel } from './CourierPanel';
 
 const MAX_EVENTS = 3;
 
@@ -51,6 +52,18 @@ export function OrderShipmentCard({ order }: { order: Order }) {
               <span className="text-muted-foreground">Modalidad</span>
               <span>{SHIPMENT_METHOD[shipment.method]}</span>
             </div>
+            {shipment.method === 'DELIVERY' && (shipment.provider || order.shippingProvider) && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Proveedor</span>
+                <span className="truncate">{shippingProviderLabel(shipment.provider ?? order.shippingProvider)}</span>
+              </div>
+            )}
+            {shipment.method === 'DELIVERY' && (shipment.zone || order.shippingZone) && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Departamento</span>
+                <span className="truncate">{shipment.zone ?? order.shippingZone}</span>
+              </div>
+            )}
             {shipment.carrier && (
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground">Transportista</span>
@@ -70,6 +83,8 @@ export function OrderShipmentCard({ order }: { order: Order }) {
               </div>
             )}
           </div>
+
+          <CourierPanel shipment={shipment} compact />
 
           <div className="border-t border-border pt-4">
             <ShipmentTimeline events={(shipment.events ?? []).slice(-MAX_EVENTS)} compact />
@@ -112,7 +127,7 @@ export function OrderShipmentCard({ order }: { order: Order }) {
             isOpen={creating}
             onClose={() => setCreating(false)}
             orderId={order.id}
-            suggested={{ recipientName: order.user?.name }}
+            suggested={{ recipientName: order.user?.name, method: order.shippingMethod, cost: orderShippingCost(order) }}
           />
         </div>
       )}

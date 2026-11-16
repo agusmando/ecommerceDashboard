@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { Check, Clock, CreditCard, PackageX, RotateCcw, Truck, User, XCircle } from 'lucide-react';
+import { Check, Clock, CreditCard, MapPin, PackageCheck, PackageX, RotateCcw, Store, Truck, User, XCircle } from 'lucide-react';
 import { ordersApi, useSyncOrderPaymentMutation } from '../api/resources';
 import type { Order, OrderItem, OrderStatus } from '../api/types';
 import { PageHeader } from '../components/PageHeader';
@@ -20,10 +20,14 @@ import {
   DISCOUNT_TYPE,
   ORDER_STATUS,
   PAYMENT_STATUS,
+  SHIPPING_METHOD_SHORT,
   describeItemQty,
   itemTotal,
+  orderChargedTotal,
+  orderShippingCost,
   paymentLabel,
   priceUnit,
+  shippingProviderLabel,
 } from '../lib/domain';
 import { cn, formatCurrency, formatDate, formatDateTime, formatOrderNumber } from '../lib/utils';
 import type { DiscountType } from '../api/types';
@@ -105,6 +109,10 @@ export default function OrderDetail() {
   const [closeItem] = useAction(
     (item: OrderItem, status: 'RETURNED' | 'CANCELLED') => update(orderId, { editItem: [{ id: item.id, status }] }),
     { success: 'Ítem actualizado', error: 'No se pudo actualizar el ítem' },
+  );
+  const [stockArrived] = useAction(
+    (item: OrderItem) => update(orderId, { editItem: [{ id: item.id, status: 'FULFILLED' }] }),
+    { success: 'Stock recibido: el ítem ya no espera reposición', error: 'No se pudo actualizar el ítem' },
   );
 
   if (isLoading) {
@@ -241,10 +249,16 @@ export default function OrderDetail() {
                 disabled: i.quantity <= 1,
               },
               {
-                label: 'Marcar esperando stock',
+                label: i.status === 'AWAITING_STOCK' ? 'Cambiar fecha de reposición' : 'Marcar esperando stock',
                 icon: <Clock className="w-4 h-4" />,
                 onClick: () => setAwaiting(i),
                 hidden: order.status === 'DELIVERED',
+              },
+              {
+                label: 'Stock recibido',
+                icon: <PackageCheck className="w-4 h-4" />,
+                onClick: () => stockArrived(i).catch(() => undefined),
+                hidden: !(i.status === 'AWAITING_STOCK' || i.awaitingStockAt),
               },
               {
                 label: 'Devolver ítem',
@@ -320,6 +334,7 @@ export default function OrderDetail() {
               {paymentLabel(order.paymentType)}
               {order.paymentType === 'MERCADOPAGO' && <MercadoPagoStatus order={order} />}
             </InfoRow>
+            <DeliveryInfo order={order} />
             <InfoRow icon={<Clock className="w-4 h-4" />} label="Entrega / retiro estimado">
               {order.estimatedReadyAt ? formatDateTime(order.estimatedReadyAt) : 'Inmediata'}
             </InfoRow>
@@ -335,13 +350,42 @@ export default function OrderDetail() {
   );
 }
 
+/** Modalidad de entrega elegida al comprar: retiro o envío (con proveedor y departamento). */
+function DeliveryInfo({ order }: { order: Order }) {
+  const method = order.shippingMethod ?? order.shipment?.method;
+  if (!method) return null;
+  const delivery = method === 'DELIVERY';
+  const provider = shippingProviderLabel(order.shippingProvider);
+  const zone = order.shippingZone ?? order.shipment?.zone;
+  return (
+    <InfoRow icon={delivery ? <Truck className="w-4 h-4" /> : <Store className="w-4 h-4" />} label="Entrega">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span>{SHIPPING_METHOD_SHORT[method]}</span>
+        {delivery && provider && <Badge tone={order.shippingProvider === 'uber' ? 'violet' : 'default'}>{provider}</Badge>}
+      </div>
+      {delivery && (
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+          {zone && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="w-3 h-3" /> {zone}
+            </span>
+          )}
+          <span>Costo de envío {formatCurrency(orderShippingCost(order))}</span>
+        </div>
+      )}
+    </InfoRow>
+  );
+}
+
 function OrderTotals({ order, subtotal, discounts }: { order: Order; subtotal: number; discounts: number }) {
-  const diff = Math.abs(subtotal - discounts - order.totalPrice) > 1;
+  const diff = Math.abs(subtotal - discounts - Number(order.totalPrice)) > 1;
+  const shipping = orderShippingCost(order);
+  const delivery = (order.shippingMethod ?? order.shipment?.method) === 'DELIVERY';
   return (
     <Card className="space-y-3">
       <CardTitle>Resumen</CardTitle>
       <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">Subtotal</span>
+        <span className="text-muted-foreground">Subtotal productos</span>
         <span className="tabular-nums">{formatCurrency(subtotal)}</span>
       </div>
       <div className="flex justify-between text-sm">
@@ -350,10 +394,22 @@ function OrderTotals({ order, subtotal, discounts }: { order: Order; subtotal: n
           {discounts ? `−${formatCurrency(discounts)}` : formatCurrency(0)}
         </span>
       </div>
-      <div className="flex items-baseline justify-between border-t border-border pt-3">
-        <span className="font-medium">Total</span>
-        <span className="text-xl font-semibold tabular-nums">{formatCurrency(order.totalPrice)}</span>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Envío</span>
+        <span className="tabular-nums">
+          {shipping ? formatCurrency(shipping) : <span className="text-muted-foreground">{delivery ? 'Gratis' : 'Retiro · sin costo'}</span>}
+        </span>
       </div>
+      <div className="flex items-baseline justify-between border-t border-border pt-3">
+        <span className="font-medium">Total cobrado</span>
+        <span className="text-xl font-semibold tabular-nums">{formatCurrency(orderChargedTotal(order))}</span>
+      </div>
+      {shipping > 0 && (
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>Ventas de productos</span>
+          <span className="tabular-nums">{formatCurrency(order.totalPrice)}</span>
+        </div>
+      )}
       {diff && (
         <Badge tone="info" className="whitespace-normal">
           El total lo calcula el servidor; puede diferir por redondeos o devoluciones prorrateadas.

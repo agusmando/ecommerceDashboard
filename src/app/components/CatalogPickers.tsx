@@ -133,7 +133,7 @@ export function VariantPicker({
   const [q, setQ] = useState('');
   const dq = useDebouncedValue(q, 300);
   const { data, isFetching } = variantsApi.usePage({
-    name: dq,
+    search: dq, // producto o variante
     detalle: true,
     active: onlyActive ? true : '',
     amountPerPage: 30,

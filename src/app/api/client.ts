@@ -7,8 +7,9 @@ import type { BaseQueryFn } from '@reduxjs/toolkit/query';
  * - Todas las respuestas tienen el formato `{ statusCode, message, response }`:
  *   acá se desenvuelve `response`.
  * - Auth con SuperTokens en **modo header**: el access token va como
- *   `Authorization: Bearer …`; si el backend responde 401 se intenta un
- *   refresh (una sola vez, compartido entre requests concurrentes).
+ *   `Authorization: Bearer …`. El token se renueva antes de vencer y, si igual
+ *   llega un 401, se renueva y se reintenta una vez. Las renovaciones se
+ *   serializan entre requests y entre pestañas (el refresh token rota).
  */
 
 const ORIGIN = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
@@ -39,6 +40,53 @@ function writeStorage(key: string, value: string | null) {
 let accessToken = readStorage(ACCESS_KEY);
 let refreshToken = readStorage(REFRESH_KEY);
 
+/**
+ * localStorage es la fuente de verdad compartida entre pestañas. SuperTokens
+ * ROTA el refresh token en cada renovación y, si alguien vuelve a usar uno
+ * viejo, el core lo trata como robo de token y revoca la sesión. Por eso cada
+ * pestaña escucha los cambios de las demás y relee el storage antes de renovar.
+ */
+const storageAvailable = (() => {
+  try {
+    const probe = '__cer_probe__';
+    localStorage.setItem(probe, '1');
+    localStorage.removeItem(probe);
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+function syncFromStorage() {
+  if (!storageAvailable) return;
+  accessToken = readStorage(ACCESS_KEY);
+  refreshToken = readStorage(REFRESH_KEY);
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === ACCESS_KEY || e.key === REFRESH_KEY || e.key === null) syncFromStorage();
+  });
+}
+
+/** Diferencia reloj local − reloj del servidor, medida con el `iat` del último token recibido. */
+let clockSkew = 0;
+
+function decodeJwt(token: string): { exp?: number; iat?: number } | null {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+}
+
+/** Milisegundos hasta que vence el access token (null si no se puede leer el `exp`). */
+function accessTokenTtl(): number | null {
+  const exp = accessToken ? decodeJwt(accessToken)?.exp : undefined;
+  return typeof exp === 'number' ? exp * 1000 + clockSkew - Date.now() : null;
+}
+
 export const tokens = {
   get access() {
     return accessToken;
@@ -50,6 +98,8 @@ export const tokens = {
     if (next.access !== undefined) {
       accessToken = next.access;
       writeStorage(ACCESS_KEY, next.access);
+      const iat = next.access ? decodeJwt(next.access)?.iat : undefined;
+      if (typeof iat === 'number') clockSkew = Date.now() - iat * 1000;
     }
     if (next.refresh !== undefined) {
       refreshToken = next.refresh;
@@ -140,10 +190,26 @@ export const http = axios.create({
   paramsSerializer: { indexes: null },
 });
 
-http.interceptors.request.use((config) => {
-  if (accessToken && !config.headers.has('Authorization')) {
-    config.headers.set('Authorization', `Bearer ${accessToken}`);
+/** Se renueva el access token si le quedan menos de 60 s (evita el 401 + reintento). */
+const REFRESH_MARGIN_MS = 60_000;
+
+const isAuthUrl = (url?: string) => !!url && url.replace(/^\/+/, '').startsWith('auth/');
+
+function expireSession() {
+  tokens.clear();
+  onSessionExpired();
+}
+
+http.interceptors.request.use(async (config) => {
+  config.headers.set('st-auth-mode', 'header');
+  if (config.headers.has('Authorization')) return config;
+  syncFromStorage();
+  const ttl = accessTokenTtl();
+  if (!isAuthUrl(config.url) && refreshToken && (!accessToken || (ttl !== null && ttl < REFRESH_MARGIN_MS))) {
+    const result = await refreshSession();
+    if (result === 'expired') expireSession();
   }
+  if (accessToken) config.headers.set('Authorization', `Bearer ${accessToken}`);
   return config;
 });
 
@@ -152,24 +218,42 @@ http.interceptors.response.use((res) => {
   return res;
 });
 
-let refreshing: Promise<boolean> | null = null;
+/** ok: hay tokens nuevos · expired: la sesión ya no se puede renovar · error: falla de red/servidor. */
+export type RefreshResult = 'ok' | 'expired' | 'error';
 
-/** Renueva el access token. Concurrent-safe: todas las requests esperan el mismo refresh. */
-export function refreshSession(): Promise<boolean> {
-  if (!refreshToken) return Promise.resolve(false);
-  refreshing ??= axios
-    .post(`${API_BASE_URL}/auth/session/refresh`, null, {
+let refreshing: Promise<RefreshResult> | null = null;
+
+/** Serializa la renovación entre pestañas (Web Locks API); sin soporte, solo dentro de la pestaña. */
+function withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  return locks ? (locks.request(`${REFRESH_KEY}:lock`, fn) as Promise<T>) : fn();
+}
+
+async function doRefresh(seen: string | null): Promise<RefreshResult> {
+  syncFromStorage();
+  if (!refreshToken) return 'expired';
+  // Otra pestaña renovó mientras esperábamos el lock: usamos sus tokens.
+  if (seen && refreshToken !== seen) return 'ok';
+  try {
+    const res = await axios.post(`${API_BASE_URL}/auth/session/refresh`, null, {
       headers: { 'st-auth-mode': 'header', Authorization: `Bearer ${refreshToken}` },
       timeout: 15000,
-    })
-    .then((res) => {
-      tokens.captureFrom(res.headers as Record<string, unknown>);
-      return true;
-    })
-    .catch(() => false)
-    .finally(() => {
+    });
+    tokens.captureFrom(res.headers as Record<string, unknown>);
+    return 'ok';
+  } catch (e) {
+    return axios.isAxiosError(e) && e.response?.status === 401 ? 'expired' : 'error';
+  }
+}
+
+/** Renueva el access token. Una sola renovación a la vez (por pestaña y entre pestañas). */
+export function refreshSession(): Promise<RefreshResult> {
+  if (!refreshing) {
+    const seen = refreshToken;
+    refreshing = withRefreshLock(() => doRefresh(seen)).finally(() => {
       refreshing = null;
     });
+  }
   return refreshing;
 }
 
@@ -177,18 +261,23 @@ type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
 http.interceptors.response.use(undefined, async (error: AxiosError) => {
   const config = error.config as RetriableConfig | undefined;
-  const isAuthCall = config?.url?.startsWith('/auth/');
-  if (error.response?.status === 401 && config && !config._retried && !isAuthCall && refreshToken) {
+  if (error.response?.status !== 401 || !config || isAuthUrl(config.url)) throw error;
+
+  if (!config._retried) {
     config._retried = true;
-    if (await refreshSession()) {
+    const used = String(config.headers.get('Authorization') ?? '').replace(/^Bearer /, '');
+    syncFromStorage();
+    // Si otra request u otra pestaña ya renovó mientras esta viajaba, solo reintentamos.
+    const result: RefreshResult =
+      accessToken && accessToken !== used ? 'ok' : refreshToken ? await refreshSession() : 'expired';
+    if (result === 'ok' && accessToken) {
       config.headers.set('Authorization', `Bearer ${accessToken}`);
       return http.request(config);
     }
+    // Sin conexión con el backend: no cerramos la sesión, el próximo intento puede renovar.
+    if (result === 'error') throw error;
   }
-  if (error.response?.status === 401 && !isAuthCall) {
-    tokens.clear();
-    onSessionExpired();
-  }
+  expireSession();
   throw error;
 });
 

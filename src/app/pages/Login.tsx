@@ -9,6 +9,8 @@ import { FormError } from '../components/States';
 import { useAppDispatch, useAppSelector } from '../store';
 import { clearNotice, signIn } from '../store/authSlice';
 
+const SHOP_URL = (import.meta.env.VITE_SHOP_URL || 'https://canelaenrama.com.ar').replace(/\/+$/, '');
+
 export default function Login() {
   const dispatch = useAppDispatch();
   const { status, notice } = useAppSelector((s) => s.auth);
@@ -79,6 +81,13 @@ export default function Login() {
             </button>
           </div>
 
+          <div className="-mt-1 text-right">
+            {/* El enlace del mail de SuperTokens siempre lleva a la tienda (websiteDomain). */}
+            <a href={`${SHOP_URL}/recuperar`} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+              ¿Olvidaste tu contraseña?
+            </a>
+          </div>
+
           <Button type="submit" className="w-full" loading={loading}>
             {!loading && <LogIn className="w-4 h-4" />}
             Ingresar
@@ -86,7 +95,7 @@ export default function Login() {
         </form>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Se requiere rol <strong>ADMIN</strong> o <strong>EMPLOYEE</strong> (asignado desde el dashboard de SuperTokens).
+          Acceso solo para el equipo: un administrador te asigna el rol desde <strong>Usuarios</strong>.
         </p>
       </Card>
     </AuthLayout>

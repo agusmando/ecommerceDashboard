@@ -5,6 +5,7 @@ import { variantsApi } from '../api/resources';
 import type { ProductVariant } from '../api/types';
 import { useListFilters } from '../hooks/useListFilters';
 import { useActiveToggle } from '../hooks/useActiveToggle';
+import { useCan } from '../hooks/useCan';
 import { formatQty, isMix, stockLevel } from '../lib/domain';
 import { cn, formatCurrency, formatNumber } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
@@ -57,11 +58,15 @@ export default function Inventory() {
   const modals = useVariantModals();
   const [setActive] = variantsApi.useSetActive();
   const toggle = useActiveToggle(setActive, 'la variante');
+  const can = useCan();
+  const canEdit = can('catalog.edit');
+  // El stock se ajusta con PUT /product/variant, que el backend protege con catalog.edit.
+  const canAdjustStock = canEdit && can('stock.manage');
 
   const numOrEmpty = (v: string) => (v.trim() === '' ? '' : Number(v));
 
   const query = variantsApi.usePage({
-    name: debounced.name,
+    search: debounced.name,
     minPrice: numOrEmpty(debounced.minPrice),
     maxPrice: numOrEmpty(debounced.maxPrice),
     maxStock: numOrEmpty(debounced.maxStock),
@@ -121,15 +126,9 @@ export default function Inventory() {
     },
     {
       key: 'channels',
-      header: 'Canales',
+      header: 'Web',
       hideOnMobile: true,
-      cell: (v) => (
-        <div className="flex flex-wrap gap-1">
-          {v.availableWeb && <Badge tone="info">Web</Badge>}
-          {v.availablePedidosYa && <Badge tone="info">PedidosYa</Badge>}
-          {!v.availableWeb && !v.availablePedidosYa && <span className="text-xs text-muted-foreground">Ninguno</span>}
-        </div>
-      ),
+      cell: (v) => <Badge tone={v.availableWeb ? 'info' : 'default'}>{v.availableWeb ? 'Visible' : 'Oculta'}</Badge>,
     },
     { key: 'active', header: 'Estado', hideOnMobile: true, cell: (v) => <ActiveBadge active={v.active} /> },
     {
@@ -139,9 +138,9 @@ export default function Inventory() {
       cell: (v) => (
         <RowActions
           actions={[
-            { label: 'Ajustar stock', icon: <Boxes className="w-4 h-4" />, onClick: () => modals.show('stock', v) },
-            { label: 'Editar precio', icon: <DollarSign className="w-4 h-4" />, onClick: () => modals.show('price', v) },
-            { label: 'Disponibilidad', icon: <Settings2 className="w-4 h-4" />, onClick: () => modals.show('availability', v) },
+            { label: 'Ajustar stock', icon: <Boxes className="w-4 h-4" />, onClick: () => modals.show('stock', v), hidden: !canAdjustStock },
+            { label: 'Editar precio', icon: <DollarSign className="w-4 h-4" />, onClick: () => modals.show('price', v), hidden: !canEdit },
+            { label: 'Disponibilidad', icon: <Settings2 className="w-4 h-4" />, onClick: () => modals.show('availability', v), hidden: !canEdit },
             {
               label: 'Ir al producto',
               icon: <ExternalLink className="w-4 h-4" />,
@@ -153,6 +152,7 @@ export default function Inventory() {
               onClick: () => toggle(v.id, v.name, v.active),
               danger: v.active,
               separator: true,
+              hidden: !canEdit,
             },
           ]}
         />
@@ -163,7 +163,7 @@ export default function Inventory() {
   const toolbar = (
     <div className="space-y-2">
       <FilterBar activeCount={f.activeCount} onReset={f.reset}>
-        <SearchInput value={values.name} onChange={(name) => f.set({ name })} placeholder="Buscar variante…" />
+        <SearchInput value={values.name} onChange={(name) => f.set({ name })} placeholder="Buscar producto o variante…" />
         <div className="w-32">
           <AffixInput
             className="h-9"

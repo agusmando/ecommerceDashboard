@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -38,8 +39,10 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
     xl: 'max-w-4xl',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+  // Portal a <body>: si un ancestro tiene transform/animación, `fixed` dejaría de
+  // ser relativo al viewport y en mobile el modal quedaba fuera de la pantalla.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in-0"
         onClick={onClose}
@@ -50,8 +53,8 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
         aria-modal="true"
         aria-labelledby={titleId}
         className={cn(
-          'relative bg-card border border-border shadow-xl w-full sm:mx-4',
-          'rounded-t-xl sm:rounded-xl max-h-[92dvh] flex flex-col',
+          'relative bg-card border border-border shadow-xl w-full',
+          'rounded-xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] flex flex-col',
           'animate-in fade-in-0 zoom-in-95 duration-150',
           sizes[size],
         )}
@@ -79,6 +82,7 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

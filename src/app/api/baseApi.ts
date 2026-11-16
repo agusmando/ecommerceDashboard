@@ -35,6 +35,8 @@ export const TAG_TYPES = [
   'Review',
   'GoogleReview',
   'Banner',
+  'ShippingZone',
+  'User',
 ] as const;
 export type TagType = (typeof TAG_TYPES)[number];
 

@@ -22,7 +22,8 @@ import { ErrorState, Skeleton } from '../components/States';
 import { CopyCode, formatShipmentAddress, ShipmentTimeline, useShipmentTransitions } from '../components/shipments/ShipmentParts';
 import { ShipmentFormModal } from '../components/shipments/ShipmentFormModal';
 import { ShipmentStatusModal } from '../components/shipments/ShipmentStatusModal';
-import { SHIPMENT_METHOD } from '../lib/domain';
+import { CourierPanel } from '../components/shipments/CourierPanel';
+import { SHIPMENT_METHOD, shippingProviderLabel } from '../lib/domain';
 import { formatCurrency, formatDate, formatDateTime, formatOrderNumber } from '../lib/utils';
 
 function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
@@ -132,8 +133,10 @@ export default function ShipmentDetail() {
                     Seguimiento del transportista <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
+                {s.provider && <div className="text-xs text-muted-foreground">Proveedor: {shippingProviderLabel(s.provider)}</div>}
               </InfoRow>
             )}
+            <CourierPanel shipment={s} />
             <InfoRow icon={<CalendarClock className="w-4 h-4" />} label={delivery ? 'Entrega estimada' : 'Retiro estimado'}>
               {formatDate(s.estimatedDeliveryAt)}
               {s.shippedAt && <div className="text-xs text-muted-foreground">{delivery ? 'Despachado' : 'Listo'} {formatDateTime(s.shippedAt)}</div>}
@@ -141,6 +144,7 @@ export default function ShipmentDetail() {
             </InfoRow>
             <InfoRow icon={<Wallet className="w-4 h-4" />} label="Costo">
               {formatCurrency(s.cost)}
+              {delivery && s.zone && <div className="text-xs text-muted-foreground">Departamento: {s.zone}</div>}
             </InfoRow>
           </Card>
 

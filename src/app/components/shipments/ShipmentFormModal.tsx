@@ -19,7 +19,7 @@ interface Props {
   /** Edición. */
   shipment?: Shipment | null;
   /** Valores sugeridos para el alta (p. ej. nombre del cliente). */
-  suggested?: { recipientName?: string | null };
+  suggested?: { recipientName?: string | null; method?: ShipmentMethod | null; cost?: number | null };
   onCreated?: (s: Shipment) => void;
 }
 
@@ -72,12 +72,12 @@ export function ShipmentFormModal({ isOpen, onClose, orderId, shipment, suggeste
       setCost(shipment.cost ? String(shipment.cost) : '');
       setEta(isoToDay(shipment.estimatedDeliveryAt));
     } else {
-      setMethod('DELIVERY');
+      setMethod(suggested?.method ?? 'DELIVERY');
       setValues({ ...EMPTY, recipientName: suggested?.recipientName ?? '' });
-      setCost('');
+      setCost(suggested?.cost ? String(suggested.cost) : '');
       setEta('');
     }
-  }, [isOpen, shipment, suggested?.recipientName]);
+  }, [isOpen, shipment, suggested?.recipientName, suggested?.method, suggested?.cost]);
 
   const set = (k: TextField) => (e: { target: { value: string } }) => setValues((v) => ({ ...v, [k]: e.target.value }));
 

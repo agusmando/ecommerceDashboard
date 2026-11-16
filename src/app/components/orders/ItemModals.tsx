@@ -82,7 +82,9 @@ export function AwaitingStockModal({ orderId, item, onClose }: Props) {
   }, [item]);
 
   const date = when ? new Date(when) : null;
-  const valid = !!date && !Number.isNaN(date.getTime());
+  const inPast = !!date && date.getTime() < Date.now();
+  const valid = !!date && !Number.isNaN(date.getTime()) && !inPast;
+  const minValue = isoToLocalInput(new Date().toISOString());
 
   const [save, busy] = useAction(
     () => update(orderId, { editItem: [{ id: item!.id, awaitingStockAt: date!.toISOString() }] }),
@@ -107,8 +109,12 @@ export function AwaitingStockModal({ orderId, item, onClose }: Props) {
         </>
       }
     >
-      <Field label="Fecha estimada de reposición" hint="Si es posterior a la entrega estimada de la orden, la corre.">
-        <input type="datetime-local" className={inputClass} value={when} onChange={(e) => setWhen(e.target.value)} />
+      <Field
+        label="Fecha estimada de reposición"
+        hint="La entrega estimada de la orden pasa a ser la fecha más lejana entre los ítems que esperan stock."
+        error={inPast ? 'La fecha tiene que ser posterior a ahora.' : undefined}
+      >
+        <input type="datetime-local" className={inputClass} value={when} min={minValue} onChange={(e) => setWhen(e.target.value)} />
       </Field>
     </Modal>
   );

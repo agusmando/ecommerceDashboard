@@ -35,6 +35,9 @@ import type {
   ReviewStats,
   ReviewSummary,
   Shipment,
+  ShippingConfig,
+  ShippingZone,
+  ShippingZoneInput,
   ShipmentEventInput,
   ShipmentFields,
   ShipmentFilters,
@@ -229,6 +232,54 @@ const extended = api.injectEndpoints({
       invalidatesTags: (_r, e) => (e ? [] : ['Shipment', 'Order']),
     }),
 
+    // ------------------------------------------------------------ Envío a domicilio (tarifas y repartidor)
+
+    /** Configuración pública: zonas activas, departamentos, proveedores configurados y punto de retiro. */
+    shippingConfig: build.query<ShippingConfig, void>({
+      query: () => ({ url: '/shipping/config' }),
+      providesTags: ['ShippingZone'],
+    }),
+
+    /** Todas las tarifas por departamento (activas o no). */
+    shippingZones: build.query<ShippingZone[], void>({
+      query: () => ({ url: '/shipping/zones' }),
+      providesTags: ['ShippingZone'],
+    }),
+
+    createShippingZone: build.mutation<ShippingZone, ShippingZoneInput>({
+      query: (body) => ({ url: '/shipping/zones', method: 'POST', data: body }),
+      invalidatesTags: (_r, e) => (e ? [] : ['ShippingZone']),
+    }),
+
+    updateShippingZone: build.mutation<ShippingZone, { id: Id; body: Partial<ShippingZoneInput> }>({
+      query: ({ id, body }) => ({ url: `/shipping/zones/${id}`, method: 'PUT', data: body }),
+      invalidatesTags: (_r, e) => (e ? [] : ['ShippingZone']),
+    }),
+
+    /** Carga masiva de movimientos: todos o ninguno (el error indica la fila). */
+    createMovementsBulk: build.mutation<{ count: number }, import('./types').MovementInput[]>({
+      query: (movements) => ({ url: '/movement/bulk', method: 'POST', data: { movements } }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Movement', 'Variant', 'Product']),
+    }),
+
+    /** Pide un repartidor de Uber Direct para el envío. Devuelve el envío actualizado. */
+    dispatchShipment: build.mutation<Shipment, Id>({
+      query: (id) => ({ url: `/shipping/shipment/${id}/dispatch`, method: 'POST' }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Shipment', 'Order']),
+    }),
+
+    /** Re-consulta el estado de la entrega en Uber. */
+    syncShipmentCourier: build.mutation<Shipment, Id>({
+      query: (id) => ({ url: `/shipping/shipment/${id}/sync`, method: 'POST' }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Shipment', 'Order']),
+    }),
+
+    /** Cancela el repartidor de Uber (el envío se puede volver a despachar). */
+    cancelShipmentCourier: build.mutation<Shipment, Id>({
+      query: (id) => ({ url: `/shipping/shipment/${id}/cancel`, method: 'POST' }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Shipment', 'Order']),
+    }),
+
     // ------------------------------------------------------------ Reseñas
 
     reviewStats: build.query<ReviewStats, void>({
@@ -306,6 +357,39 @@ const extended = api.injectEndpoints({
       invalidatesTags: (_r, e) => (e ? [] : ['Banner']),
     }),
 
+    // ------------------------------------------------------------ Usuarios y roles (users.manage)
+
+    users: build.query<import('./types').UserList, import('./types').UserFilters>({
+      query: (params) => ({ url: '/user', params: { currentPage: 1, amountPerPage: 20, ...params } }),
+      transformResponse: (raw: Omit<import('./types').UserList, 'pagination'> & { pagination: Omit<import('./types').PaginationInfo, 'totalPages'> }) => ({
+        ...raw,
+        pagination: {
+          ...raw.pagination,
+          totalPages: Math.max(1, Math.ceil(raw.pagination.totalAmount / Math.max(1, raw.pagination.amountPerPage))),
+        },
+      }),
+      providesTags: ['User'],
+    }),
+    userDetail: build.query<import('./types').ManagedUserDetail, string>({
+      query: (supertokensId) => ({ url: `/user/${supertokensId}/detail` }),
+      providesTags: (_r, _e, id) => [{ type: 'User', id }],
+    }),
+    roleCatalog: build.query<import('./types').RoleDefinition[], void>({
+      query: () => ({ url: '/user/roles' }),
+      keepUnusedDataFor: 3600,
+    }),
+    setUserRole: build.mutation<import('./types').ManagedUserDetail, { supertokensId: string; role: import('../lib/permissions').StaffRole | null }>({
+      query: ({ supertokensId, role }) => ({ url: `/user/${supertokensId}/role`, method: 'PUT', data: { role } }),
+      invalidatesTags: (_r, e) => (e ? [] : ['User']),
+    }),
+    revokeUserSessions: build.mutation<{ revoked: number }, string>({
+      query: (supertokensId) => ({ url: `/user/${supertokensId}/revoke-sessions`, method: 'POST' }),
+    }),
+    inviteUser: build.mutation<import('./types').InviteUserResult, import('./types').InviteUserInput>({
+      query: (body) => ({ url: '/user/invite', method: 'POST', data: body }),
+      invalidatesTags: (_r, e) => (e ? [] : ['User']),
+    }),
+
     health: build.query<{ status: string; latencyMs: number }, void>({
       queryFn: async (_arg, _api, _extra, baseQuery) => {
         const t0 = performance.now();
@@ -320,11 +404,19 @@ const extended = api.injectEndpoints({
 
 export const {
   useCreateProductMutation,
+  useCreateMovementsBulkMutation,
   useUpdateVariantMutation,
   useHealthQuery,
   useShipmentMetaQuery,
   useShipmentByOrderQuery,
   useAddShipmentEventMutation,
+  useShippingConfigQuery,
+  useShippingZonesQuery,
+  useCreateShippingZoneMutation,
+  useUpdateShippingZoneMutation,
+  useDispatchShipmentMutation,
+  useSyncShipmentCourierMutation,
+  useCancelShipmentCourierMutation,
   useReviewStatsQuery,
   useReviewSummaryQuery,
   useModerateReviewMutation,
@@ -338,6 +430,12 @@ export const {
   useUpdateBannerMutation,
   useReorderBannersMutation,
   useDeleteBannerMutation,
+  useUsersQuery,
+  useUserDetailQuery,
+  useRoleCatalogQuery,
+  useSetUserRoleMutation,
+  useRevokeUserSessionsMutation,
+  useInviteUserMutation,
 } = extended;
 
 /** Hasta 100 por página es el máximo que acepta el backend. */

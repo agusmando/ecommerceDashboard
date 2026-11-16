@@ -5,6 +5,7 @@ import { productsApi } from '../api/resources';
 import type { Product, ProductVariant } from '../api/types';
 import { useListFilters } from '../hooks/useListFilters';
 import { useActiveToggle } from '../hooks/useActiveToggle';
+import { useCan } from '../hooks/useCan';
 import { formatQty, priceUnit, stockLevel, type Tone } from '../lib/domain';
 import { cn, formatCurrency } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
@@ -117,6 +118,8 @@ export default function Products() {
 
   const [setActive] = productsApi.useSetActive();
   const toggle = useActiveToggle(setActive, 'el producto');
+  const can = useCan();
+  const canCreate = can('catalog.edit');
 
   const categories = useCategoryOptions();
   const brands = useBrandOptions();
@@ -138,6 +141,7 @@ export default function Products() {
       onClick: () => toggle(p.id, p.name, p.active),
       danger: p.active,
       separator: true,
+      hidden: !can('catalog.delete'),
     },
   ];
 
@@ -209,16 +213,16 @@ export default function Products() {
   const empty = {
     icon: <Package className="w-6 h-6" />,
     title: f.activeCount ? 'Ningún producto coincide con los filtros' : 'Todavía no hay productos',
-    description: f.activeCount ? 'Probá con otros filtros.' : 'Creá el primero para empezar a vender.',
+    description: f.activeCount ? 'Probá con otros filtros.' : canCreate ? 'Creá el primero para empezar a vender.' : undefined,
     action: f.activeCount ? (
       <Button variant="outline" size="sm" onClick={f.reset}>
         Limpiar filtros
       </Button>
-    ) : (
+    ) : canCreate ? (
       <Button size="sm" onClick={() => setCreating(true)}>
         <Plus className="w-4 h-4" /> Nuevo producto
       </Button>
-    ),
+    ) : undefined,
   };
 
   return (
@@ -229,9 +233,11 @@ export default function Products() {
           query.data ? `${query.data.pagination.totalAmount} productos en el catálogo` : 'Catálogo de productos y sus variantes'
         }
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="w-4 h-4" /> Nuevo producto
-          </Button>
+          canCreate && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="w-4 h-4" /> Nuevo producto
+            </Button>
+          )
         }
       />
 
@@ -317,7 +323,7 @@ export default function Products() {
         </div>
       )}
 
-      <CreateProductModal isOpen={creating} onClose={() => setCreating(false)} />
+      {canCreate && <CreateProductModal isOpen={creating} onClose={() => setCreating(false)} />}
     </>
   );
 }

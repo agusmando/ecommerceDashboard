@@ -37,7 +37,7 @@ export type Measure = (typeof MEASURES)[number];
 
 // ---------------------------------------------------------------- Auth
 
-export type UserRole = 'ADMIN' | 'EMPLOYEE' | 'CONSUMER';
+export type UserRole = 'ADMIN' | 'EDITOR' | 'EMPLOYEE' | 'CONSUMER';
 
 export interface User {
   id: Id;
@@ -48,8 +48,65 @@ export interface User {
   role: UserRole;
   /** Roles de SuperTokens (los que usa el backend para autorizar). */
   roles: string[];
+  /** Permisos efectivos según los roles (RBAC del backend). */
+  permissions?: import('../lib/permissions').Permission[];
   createdAt: ISODate;
   updatedAt: ISODate;
+}
+
+/** Usuario en la pantalla de gestión (GET /user). */
+export interface ManagedUser {
+  id: Id;
+  supertokensId: string;
+  email: string | null;
+  name: string | null;
+  avatarUrl: string | null;
+  createdAt: ISODate;
+  ordersCount: number;
+  /** Rol de staff principal; null = cliente. */
+  role: import('../lib/permissions').StaffRole | null;
+  roles: string[];
+  permissions: import('../lib/permissions').Permission[];
+}
+
+export interface ManagedUserDetail extends ManagedUser {
+  /** 'email' o el proveedor social ('google'). */
+  loginMethods: string[];
+  lastOrder: { id: Id; createdAt: ISODate; status: string } | null;
+}
+
+export type UserRoleFilter = 'ALL' | 'STAFF' | 'ADMIN' | 'EDITOR' | 'EMPLOYEE' | 'CUSTOMER';
+
+export interface UserFilters {
+  search?: string;
+  role?: Exclude<UserRoleFilter, 'ALL'>;
+  currentPage?: number;
+  amountPerPage?: number;
+}
+
+export interface UserList extends Paginated<ManagedUser> {
+  counts: Partial<Record<'total' | 'STAFF' | 'ADMIN' | 'EDITOR' | 'EMPLOYEE' | 'CUSTOMER', number>>;
+}
+
+export interface RoleDefinition {
+  key: import('../lib/permissions').StaffRole;
+  label: string;
+  description: string;
+  permissions: import('../lib/permissions').Permission[];
+}
+
+export interface InviteUserInput {
+  email: string;
+  name?: string;
+  role: import('../lib/permissions').StaffRole;
+}
+
+export interface InviteUserResult {
+  user: ManagedUserDetail;
+  created: boolean;
+  emailSent: boolean;
+  /** Enlace para elegir contraseña (solo para cuentas nuevas). */
+  inviteLink: string | null;
 }
 
 // ---------------------------------------------------------------- Maestros
@@ -129,7 +186,6 @@ export interface ProductVariant {
   stockThreshold: number;
   roundingOption: number;
   availableWeb: boolean;
-  availablePedidosYa: boolean;
   finalPrice?: number;
   /** Oferta vigente (calculada por el backend, mismas reglas que el carrito). */
   activeOffer?: ActiveOffer | null;
@@ -169,11 +225,12 @@ export interface ProductFilters extends ListParams {
 
 export interface VariantFilters extends ListParams {
   name?: string;
+  /** Texto libre: nombre del producto o de la variante. */
+  search?: string;
   minPrice?: number | '';
   maxPrice?: number | '';
   maxStock?: number | '';
   availableWeb?: boolean | '';
-  availablePedidosYa?: boolean | '';
 }
 
 export interface VariantInput {
@@ -187,7 +244,6 @@ export interface VariantInput {
   stockThreshold?: number;
   requestTime?: string;
   availableWeb?: boolean;
-  availablePedidosYa?: boolean;
   hasComponents?: { productVariantId: Id; quantity: number }[];
 }
 
@@ -225,7 +281,6 @@ export interface UpdateVariantInput {
   /** Delta: + IN (o produce si es mix), − OUT. */
   stockIncrement?: number;
   availableWeb?: boolean;
-  availablePedidosYa?: boolean;
   packagingOptions?: number[];
   stockThreshold?: number;
   requestTime?: string;
@@ -298,6 +353,8 @@ export interface Movement {
 }
 
 export interface MovementFilters extends ListParams {
+  /** Texto libre: nombre del producto o de la variante. */
+  search?: string;
   productVariantId?: Id | '';
   type?: MovementType | '';
   from?: string;
@@ -363,8 +420,17 @@ export interface Order {
   user?: Omit<User, 'roles'> | null;
   createdAt: ISODate;
   updatedAt: ISODate;
+  /** Solo productos (con descuentos). Lo que paga el cliente es `totalPrice + shippingCost` (ver `orderChargedTotal`). */
   totalPrice: number;
   totalItems: number;
+  /** Retiro en el local o envío a domicilio (elegido al comprar). */
+  shippingMethod?: ShippingMethod;
+  /** Costo de envío cobrado al cliente (0 en retiro). */
+  shippingCost?: number;
+  /** Quién cotizó el envío: 'own' (tarifa propia por departamento) o 'uber' (Uber Direct). */
+  shippingProvider?: ShippingProvider | string | null;
+  /** Departamento de entrega. */
+  shippingZone?: string | null;
   paymentType: PaymentType | string;
   /** Estado del cobro online (Mercado Pago). En otros medios queda PENDING y se gestiona a mano. */
   paymentStatus?: PaymentStatus;
@@ -380,6 +446,7 @@ export interface Order {
 
 export interface OrderFilters extends ListParams {
   status?: OrderStatus | '';
+  shippingMethod?: ShippingMethod | '';
   paymentType?: string;
   userSuperTokensId?: string;
   /** Creadas desde (YYYY-MM-DD). */
@@ -400,7 +467,7 @@ export interface CreateOrderInput {
 
 export type OrderItemEdit =
   | { id?: Id; productVariantId?: Id; quantity: number }
-  | { id?: Id; productVariantId?: Id; status: 'RETURNED' | 'CANCELLED' }
+  | { id?: Id; productVariantId?: Id; status: 'RETURNED' | 'CANCELLED' | 'FULFILLED' }
   | { id?: Id; productVariantId?: Id; awaitingStockAt: ISODate };
 
 export interface UpdateOrderInput {
@@ -437,6 +504,7 @@ export interface Cart {
   id: Id;
   userSuperTokensId: string | null;
   sessionId: string | null;
+  user?: { email: string | null; name: string | null } | null;
   createdAt: ISODate;
   updatedAt: ISODate;
   items?: CartItem[];
@@ -447,6 +515,11 @@ export interface Cart {
 
 export const SHIPMENT_METHODS = ['DELIVERY', 'PICKUP'] as const;
 export type ShipmentMethod = (typeof SHIPMENT_METHODS)[number];
+/** Modalidad de entrega de la orden (mismos valores que el envío). */
+export type ShippingMethod = ShipmentMethod;
+export type ShippingProvider = 'own' | 'uber';
+/** Estados de una entrega de Uber Direct. */
+export type UberDeliveryStatus = 'pending' | 'pickup' | 'pickup_complete' | 'dropoff' | 'delivered' | 'canceled' | 'returned';
 
 export const SHIPMENT_STATUSES = [
   'PENDING',
@@ -509,6 +582,14 @@ export interface Shipment {
   postalCode: string | null;
   notes: string | null;
   cost: number;
+  /** Proveedor de mensajería ('uber' = Uber Direct); null si se gestiona a mano. */
+  provider?: ShippingProvider | string | null;
+  /** Id de la entrega en el proveedor (Uber). */
+  providerDeliveryId?: string | null;
+  /** Último estado informado por el proveedor (ver `UberDeliveryStatus`). */
+  providerStatus?: UberDeliveryStatus | string | null;
+  /** Departamento de entrega. */
+  zone?: string | null;
   estimatedDeliveryAt: ISODate | null;
   shippedAt: ISODate | null;
   deliveredAt: ISODate | null;
@@ -517,7 +598,7 @@ export interface Shipment {
   /** Ordenados por fecha ascendente. */
   events: ShipmentEvent[];
   /** Solo en el listado con `detalle=true`. */
-  order?: Pick<Order, 'id' | 'status' | 'userSuperTokensId' | 'totalPrice' | 'createdAt'> & {
+  order?: Pick<Order, 'id' | 'status' | 'userSuperTokensId' | 'totalPrice' | 'createdAt' | 'shippingCost'> & {
     user?: { name: string | null; email: string | null } | null;
   };
 }
@@ -564,6 +645,38 @@ export interface ShipmentEventInput {
   status: ShipmentStatus;
   description?: string;
   location?: string;
+}
+
+// ---------------------------------------------------------------- Tarifas de envío
+
+/** Tarifa propia de envío por departamento. */
+export interface ShippingZone {
+  id: Id;
+  name: string;
+  price: number;
+  etaMinutes: number | null;
+  active: boolean;
+  sortOrder: number;
+  createdAt: ISODate;
+  updatedAt: ISODate;
+}
+
+export interface ShippingZoneInput {
+  name: string;
+  price: number;
+  etaMinutes?: number | null;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+/** `GET /shipping/config` (público). */
+export interface ShippingConfig {
+  /** Solo las zonas activas. */
+  zones: Pick<ShippingZone, 'name' | 'price' | 'etaMinutes'>[];
+  /** Todos los departamentos (activos o no). */
+  departments: string[];
+  providers: { uber: boolean };
+  pickup: { name: string; address: string };
 }
 
 // ---------------------------------------------------------------- Reseñas

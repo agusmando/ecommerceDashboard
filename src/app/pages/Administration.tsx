@@ -111,7 +111,7 @@ export default function Administration() {
             </Button>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Los roles se administran desde el dashboard de SuperTokens: el backend no expone un ABM de usuarios.
+            Los roles se asignan desde la sección Usuarios (solo administradores).
           </p>
         </Card>
 

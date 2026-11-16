@@ -13,8 +13,11 @@ import type {
   PaymentType,
   ProductVariant,
   ReviewStatus,
+  Order,
+  Shipment,
   ShipmentMethod,
   ShipmentStatus,
+  UberDeliveryStatus,
 } from '../api/types';
 import { formatCurrency, formatNumber } from './utils';
 
@@ -274,6 +277,45 @@ export const SHIPMENT_METHOD: Record<ShipmentMethod, string> = {
   DELIVERY: 'Envío a domicilio',
   PICKUP: 'Retiro en el local',
 };
+
+// ---------------------------------------------------------------- Envío a domicilio
+
+/** Retiro / envío a domicilio de la orden (corto, para listados). */
+export const SHIPPING_METHOD_SHORT: Record<ShipmentMethod, string> = {
+  PICKUP: 'Retiro',
+  DELIVERY: 'Envío a domicilio',
+};
+
+/** Quién cotizó/entrega el envío. */
+export const SHIPPING_PROVIDER_LABEL: Record<string, string> = {
+  own: 'Tarifa propia',
+  uber: 'Uber Direct',
+};
+export const shippingProviderLabel = (p?: string | null) => (p ? SHIPPING_PROVIDER_LABEL[p] ?? p : null);
+
+/** Estados de una entrega de Uber Direct. */
+export const UBER_STATUS: Record<UberDeliveryStatus, { label: string; tone: Tone }> = {
+  pending: { label: 'Buscando repartidor', tone: 'warning' },
+  pickup: { label: 'Repartidor yendo al local', tone: 'info' },
+  pickup_complete: { label: 'Pedido retirado por el repartidor', tone: 'violet' },
+  dropoff: { label: 'En camino al cliente', tone: 'info' },
+  delivered: { label: 'Entregado', tone: 'success' },
+  canceled: { label: 'Repartidor cancelado', tone: 'danger' },
+  returned: { label: 'Devuelto al local', tone: 'default' },
+};
+export const uberStatus = (s?: string | null) =>
+  s ? UBER_STATUS[s as UberDeliveryStatus] ?? { label: s, tone: 'default' as Tone } : null;
+
+/** El envío tiene un repartidor de Uber en curso (pedido y no cancelado). */
+export const hasActiveCourier = (s: Pick<Shipment, 'providerDeliveryId' | 'providerStatus'>) =>
+  !!s.providerDeliveryId && s.providerStatus !== 'canceled';
+
+/** Costo de envío cobrado en la orden (0 si es retiro o el backend no lo informa). */
+export const orderShippingCost = (o: Pick<Order, 'shippingCost'>) => Number(o.shippingCost) || 0;
+
+/** Lo que pagó el cliente: productos (`totalPrice`) + envío. */
+export const orderChargedTotal = (o: Pick<Order, 'totalPrice' | 'shippingCost'>) =>
+  (Number(o.totalPrice) || 0) + orderShippingCost(o);
 
 // ---------------------------------------------------------------- Reseñas
 

@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowRight, Hash, Plus, ShoppingCart } from 'lucide-react';
+import { ArrowRight, Hash, Plus, ShoppingCart, Store, Truck } from 'lucide-react';
 import { ordersApi } from '../api/resources';
-import { ORDER_STATUSES, PAYMENT_TYPES, type Order, type OrderStatus } from '../api/types';
+import { ORDER_STATUSES, PAYMENT_TYPES, SHIPMENT_METHODS, type Order, type OrderStatus, type ShippingMethod } from '../api/types';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { DataTable, type Column } from '../components/DataTable';
@@ -12,12 +12,13 @@ import { RowActions } from '../components/RowActions';
 import { CreateOrderModal } from '../components/orders/CreateOrderModal';
 import { nextStatuses, useOrderStatusChange } from '../components/orders/useOrderStatusChange';
 import { useListFilters } from '../hooks/useListFilters';
-import { ORDER_STATUS, PAYMENT_STATUS, paymentLabel } from '../lib/domain';
+import { ORDER_STATUS, PAYMENT_STATUS, SHIPPING_METHOD_SHORT, orderChargedTotal, orderShippingCost, paymentLabel } from '../lib/domain';
 import { formatCurrency, formatDate, formatDateTime, formatOrderNumber, formatRelative } from '../lib/utils';
 
 const DEFAULTS = {
   status: '' as OrderStatus | '',
   paymentType: '',
+  shippingMethod: '' as ShippingMethod | '',
   createdAt: '',
   userSuperTokensId: '',
 };
@@ -64,6 +65,7 @@ export default function Orders() {
     detalle: true,
     status: f.debounced.status,
     paymentType: f.debounced.paymentType,
+    shippingMethod: f.debounced.shippingMethod,
     createdAt: f.debounced.createdAt,
     userSuperTokensId: f.debounced.userSuperTokensId.trim(),
     currentPage: f.values.page,
@@ -117,10 +119,42 @@ export default function Orders() {
       ),
     },
     {
+      key: 'delivery',
+      header: 'Entrega',
+      hideOnMobile: true,
+      cell: (o) =>
+        o.shippingMethod ? (
+          <div className="flex items-start gap-1.5">
+            {o.shippingMethod === 'DELIVERY' ? (
+              <Truck className="mt-0.5 w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <Store className="mt-0.5 w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <div className="min-w-0">
+              <div className="whitespace-nowrap">{o.shippingMethod === 'DELIVERY' ? 'Envío' : 'Retiro'}</div>
+              {o.shippingMethod === 'DELIVERY' && o.shippingZone && (
+                <div className="max-w-[140px] truncate text-xs text-muted-foreground">{o.shippingZone}</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
       key: 'total',
-      header: 'Total',
+      header: 'Total cobrado',
       align: 'right',
-      cell: (o) => <span className="font-medium tabular-nums">{formatCurrency(o.totalPrice)}</span>,
+      cell: (o) => (
+        <div>
+          <div className="font-medium tabular-nums">{formatCurrency(orderChargedTotal(o))}</div>
+          {orderShippingCost(o) > 0 && (
+            <div className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">
+              incl. envío {formatCurrency(orderShippingCost(o))}
+            </div>
+          )}
+        </div>
+      ),
     },
     { key: 'status', header: 'Estado', cell: (o) => <OrderStatusBadge status={o.status} /> },
     {
@@ -181,6 +215,13 @@ export default function Orders() {
               onChange={(paymentType) => f.set({ paymentType })}
               placeholder="Todos los pagos"
               options={PAYMENT_TYPES.map((p) => ({ value: p, label: paymentLabel(p) }))}
+            />
+            <FilterSelect
+              value={f.values.shippingMethod}
+              onChange={(shippingMethod) => f.set({ shippingMethod })}
+              placeholder="Retiro y envío"
+              label="Entrega"
+              options={SHIPMENT_METHODS.map((m) => ({ value: m, label: SHIPPING_METHOD_SHORT[m] }))}
             />
             <DateFilter label="Desde" value={f.values.createdAt} onChange={(createdAt) => f.set({ createdAt })} />
             <SearchInput

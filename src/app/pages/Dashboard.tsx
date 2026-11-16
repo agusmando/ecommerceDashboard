@@ -13,7 +13,7 @@ import { variantLabel } from '../components/CatalogPickers';
 import { useOrderStats } from '../hooks/useOrderStats';
 import { useAppDispatch, useAppSelector } from '../store';
 import { patchFilters } from '../store/filtersSlice';
-import { formatQty, offerState, stockLevel, todayInput } from '../lib/domain';
+import { formatQty, offerState, orderChargedTotal, stockLevel, todayInput } from '../lib/domain';
 import { formatCurrency, formatNumber, formatOrderNumber, formatRelative } from '../lib/utils';
 
 function greeting() {
@@ -61,9 +61,9 @@ export default function Dashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
-          label="Ventas de hoy"
+          label="Ventas de hoy (productos)"
           value={formatCurrency(todayRevenue)}
-          hint={`${formatCurrency(stats.revenue)} en 14 días`}
+          hint={`${formatCurrency(stats.revenue)} en 14 días · envíos ${formatCurrency(stats.shipping.revenue)}`}
           icon={<DollarSign className="w-5 h-5" />}
           loading={stats.isLoading}
         />
@@ -95,7 +95,7 @@ export default function Dashboard() {
           <CardHeader className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <CardTitle>Ventas por día</CardTitle>
-              <p className="text-sm text-muted-foreground">Total de órdenes no canceladas</p>
+              <p className="text-sm text-muted-foreground">Productos de órdenes no canceladas (sin envío)</p>
             </div>
             <Link to="/dashboard/statistics" className="text-sm font-medium text-primary hover:underline">
               Ver estadísticas
@@ -188,7 +188,7 @@ export default function Dashboard() {
                   <span className="font-mono font-medium">{formatOrderNumber(o.id)}</span>
                   <span className="text-muted-foreground">{formatRelative(o.createdAt)}</span>
                   <span className="min-w-0 max-w-full truncate text-muted-foreground">{o.user?.email ?? o.userSuperTokensId.slice(0, 8)}</span>
-                  <span className="ml-auto font-medium tabular-nums">{formatCurrency(o.totalPrice)}</span>
+                  <span className="ml-auto font-medium tabular-nums">{formatCurrency(orderChargedTotal(o))}</span>
                   <OrderStatusBadge status={o.status} />
                 </Link>
               </li>

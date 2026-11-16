@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DollarSign, Percent, Receipt, ShoppingCart } from 'lucide-react';
+import { DollarSign, MapPin, Percent, Receipt, ShoppingCart, Store, Truck, Wallet } from 'lucide-react';
 import { ORDER_STATUSES } from '../api/types';
 import { Card, CardHeader, CardTitle } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
@@ -8,7 +8,7 @@ import { Segmented } from '../components/Filters';
 import { EmptyState, ErrorState, Skeleton } from '../components/States';
 import { DistributionBar, RankingBars, STATUS_BAR_CLASS, TrendChart } from '../components/Charts';
 import { useOrderStats } from '../hooks/useOrderStats';
-import { ORDER_STATUS, paymentLabel, todayInput } from '../lib/domain';
+import { ORDER_STATUS, paymentLabel, shippingProviderLabel, todayInput } from '../lib/domain';
 import { formatCurrency, formatNumber } from '../lib/utils';
 
 const PERIODS = [
@@ -41,20 +41,23 @@ export default function Statistics() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Facturación" value={formatCurrency(s.revenue)} icon={<DollarSign className="w-5 h-5" />} loading={loading} hint="Sin órdenes canceladas" />
+        <StatTile label="Ventas de productos" value={formatCurrency(s.revenue)} icon={<DollarSign className="w-5 h-5" />} loading={loading} hint="Sin envío ni órdenes canceladas" />
         <StatTile label="Órdenes" value={formatNumber(s.totalAmount)} icon={<ShoppingCart className="w-5 h-5" />} loading={loading} hint={`${formatNumber(s.validCount)} no canceladas`} />
-        <StatTile label="Ticket promedio" value={formatCurrency(s.avgTicket)} icon={<Receipt className="w-5 h-5" />} loading={loading} />
+        <StatTile label="Ticket promedio" value={formatCurrency(s.avgTicket)} icon={<Receipt className="w-5 h-5" />} loading={loading} hint="Solo productos" />
         <StatTile label="Descuentos otorgados" value={formatCurrency(s.discounts)} icon={<Percent className="w-5 h-5" />} loading={loading} hint="Suma de ofertas aplicadas" />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Facturación diaria</CardTitle>
+          <CardTitle>Ventas de productos por día</CardTitle>
+          <p className="text-sm text-muted-foreground">Sin costo de envío</p>
         </CardHeader>
         {chartBox(
           <TrendChart data={s.byDay} x="label" y="revenue" height={280} labelFormat={(_l, row) => `${row.label} · ${row.orders} órdenes`} />,
         )}
       </Card>
+
+      <ShippingStats s={s} loading={loading} chartBox={chartBox} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -105,7 +108,7 @@ export default function Statistics() {
                   <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="pb-2 font-medium">Medio</th>
                     <th className="pb-2 text-right font-medium">Órdenes</th>
-                    <th className="pb-2 text-right font-medium">Total</th>
+                    <th className="pb-2 text-right font-medium">Productos</th>
                     <th className="pb-2 pl-4 font-medium w-1/3">Participación</th>
                   </tr>
                 </thead>
@@ -135,6 +138,100 @@ export default function Statistics() {
           </Card>
         </div>
       </div>
+    </>
+  );
+}
+
+type Stats = ReturnType<typeof useOrderStats>;
+
+/** Envíos: ingresos por envío (aparte de las ventas de productos), domicilio vs retiro y apertura por departamento. */
+function ShippingStats({ s, loading, chartBox }: { s: Stats; loading: boolean; chartBox: (n: React.ReactNode) => React.ReactNode }) {
+  const sh = s.shipping;
+  const total = sh.deliveries + sh.pickups;
+  const deliveryShare = total ? Math.round((sh.deliveries / total) * 100) : 0;
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label="Ingresos por envío"
+          value={formatCurrency(sh.revenue)}
+          icon={<Wallet className="w-5 h-5" />}
+          loading={loading}
+          hint={`Total cobrado con envío: ${formatCurrency(s.chargedRevenue)}`}
+        />
+        <StatTile
+          label="Envíos a domicilio"
+          value={formatNumber(sh.deliveries)}
+          icon={<Truck className="w-5 h-5" />}
+          loading={loading}
+          hint={`${deliveryShare}% de las órdenes no canceladas`}
+        />
+        <StatTile
+          label="Retiros en el local"
+          value={formatNumber(sh.pickups)}
+          icon={<Store className="w-5 h-5" />}
+          loading={loading}
+          hint={total ? `${100 - deliveryShare}% de las órdenes no canceladas` : undefined}
+        />
+        <StatTile
+          label="Costo promedio de envío"
+          value={formatCurrency(sh.avgCost)}
+          icon={<MapPin className="w-5 h-5" />}
+          loading={loading}
+          hint={
+            sh.deliveries
+              ? sh.paidDeliveries < sh.deliveries
+                ? `${sh.deliveries - sh.paidDeliveries} envíos gratis incluidos`
+                : 'Por envío a domicilio'
+              : 'Sin envíos en el período'
+          }
+        />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Envíos por departamento</CardTitle>
+          <p className="text-sm text-muted-foreground">Ingresos por envío de órdenes no canceladas</p>
+        </CardHeader>
+        {chartBox(
+          !sh.byZone.length ? (
+            <EmptyState title="Sin envíos a domicilio en el período" className="py-8" />
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <RankingBars data={sh.byZone} label="zone" value="revenue" />
+              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                <table className="w-full min-w-[20rem] text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="pb-2 font-medium">Departamento</th>
+                      <th className="pb-2 text-right font-medium">Envíos</th>
+                      <th className="pb-2 text-right font-medium">Cobrado</th>
+                      <th className="pb-2 text-right font-medium">Promedio</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {sh.byZone.map((z) => (
+                      <tr key={z.zone}>
+                        <td className="py-2">{z.zone}</td>
+                        <td className="py-2 text-right tabular-nums">{z.count}</td>
+                        <td className="py-2 text-right tabular-nums">{formatCurrency(z.revenue)}</td>
+                        <td className="py-2 text-right tabular-nums text-muted-foreground">{formatCurrency(z.count ? z.revenue / z.count : 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {sh.byProvider.length > 0 && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {sh.byProvider
+                      .map((p) => `${shippingProviderLabel(p.provider)}: ${p.count} (${formatCurrency(p.revenue)})`)
+                      .join(' · ')}
+                  </p>
+                )}
+              </div>
+            </div>
+          ),
+        )}
+      </Card>
     </>
   );
 }

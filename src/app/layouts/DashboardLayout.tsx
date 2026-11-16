@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation, useMatches } from 'react-router';
-import { Loader2 } from 'lucide-react';
+import { Link } from 'react-router';
+import { Loader2, ShieldAlert } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { useAppSelector } from '../store';
+import { Card } from '../components/Card';
+import { EmptyState } from '../components/States';
+import { hasPermission, type Permission } from '../lib/permissions';
 
 export interface RouteHandle {
   title?: string;
+  /** Permiso necesario para ver la página (ver lib/permissions). */
+  perm?: Permission;
 }
 
 /** Layout persistente de /dashboard/*: sidebar y header no se re-montan al navegar. */
 export function DashboardLayout() {
   const status = useAppSelector((s) => s.auth.status);
+  const user = useAppSelector((s) => s.auth.user);
   const location = useLocation();
   const matches = useMatches();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -52,10 +59,27 @@ export function DashboardLayout() {
         <Header title={handle.title} onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 space-y-6">
-            <Outlet />
+            {handle.perm && !hasPermission(user, handle.perm) ? <Forbidden /> : <Outlet />}
           </div>
         </main>
       </div>
     </div>
+  );
+}
+
+function Forbidden() {
+  return (
+    <Card>
+      <EmptyState
+        icon={<ShieldAlert className="w-6 h-6" />}
+        title="No tenés acceso a esta sección"
+        description="Tu rol no incluye este permiso. Si lo necesitás, pedíselo a un administrador."
+        action={
+          <Link to="/dashboard" className="text-sm font-medium text-primary hover:underline">
+            Ir al inicio
+          </Link>
+        }
+      />
+    </Card>
   );
 }

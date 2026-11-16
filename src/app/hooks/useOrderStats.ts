@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ordersApi } from '../api/resources';
 import type { Order, OrderStatus } from '../api/types';
-import { itemTotal, CLOSED_ITEM_STATUSES } from '../lib/domain';
+import { itemTotal, orderShippingCost, CLOSED_ITEM_STATUSES } from '../lib/domain';
 
 /**
  * Trae las órdenes desde una fecha (hasta 3 páginas de 100, el máximo por
@@ -39,9 +39,50 @@ export function useOrderStats(sinceDay: string) {
 const dayKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-function computeStats(orders: Order[], sinceDay: string) {
+/** Etiqueta para envíos sin departamento informado. */
+export const NO_ZONE = 'Sin departamento';
+
+/**
+ * `revenue` son ventas de PRODUCTOS (`totalPrice`); lo cobrado por envío va
+ * aparte en `shipping` para no mezclar los dos ingresos.
+ */
+export function computeStats(orders: Order[], sinceDay: string) {
   const valid = orders.filter((o) => o.status !== 'CANCELLED');
   const revenue = valid.reduce((s, o) => s + (Number(o.totalPrice) || 0), 0);
+
+  // Envíos: ingresos, retiro vs domicilio y apertura por departamento.
+  let shippingRevenue = 0;
+  let deliveries = 0;
+  let pickups = 0;
+  let paidDeliveries = 0;
+  const byZoneMap = new Map<string, { zone: string; revenue: number; count: number }>();
+  const byProvider = new Map<string, { count: number; revenue: number }>();
+  valid.forEach((o) => {
+    const cost = orderShippingCost(o);
+    shippingRevenue += cost;
+    if ((o.shippingMethod ?? o.shipment?.method) !== 'DELIVERY') {
+      pickups += 1;
+      return;
+    }
+    deliveries += 1;
+    if (cost > 0) paidDeliveries += 1;
+    const zone = o.shippingZone || o.shipment?.zone || NO_ZONE;
+    const z = byZoneMap.get(zone) ?? { zone, revenue: 0, count: 0 };
+    byZoneMap.set(zone, { zone, revenue: z.revenue + cost, count: z.count + 1 });
+    const provider = o.shippingProvider || 'own';
+    const p = byProvider.get(provider) ?? { count: 0, revenue: 0 };
+    byProvider.set(provider, { count: p.count + 1, revenue: p.revenue + cost });
+  });
+  const shipping = {
+    revenue: shippingRevenue,
+    deliveries,
+    pickups,
+    /** Promedio cobrado por envío a domicilio (los gratis cuentan como $0). */
+    avgCost: deliveries ? shippingRevenue / deliveries : 0,
+    paidDeliveries,
+    byZone: [...byZoneMap.values()].sort((a, b) => b.revenue - a.revenue || b.count - a.count),
+    byProvider: [...byProvider.entries()].map(([provider, v]) => ({ provider, ...v })).sort((a, b) => b.count - a.count),
+  };
 
   // Ventas por día, con días vacíos en 0 para no mentir en el eje temporal.
   const byDayMap = new Map<string, { revenue: number; orders: number }>();
@@ -84,7 +125,11 @@ function computeStats(orders: Order[], sinceDay: string) {
   );
 
   return {
+    /** Ventas de productos (sin envío). */
     revenue,
+    /** Lo cobrado a clientes: productos + envío. */
+    chargedRevenue: revenue + shippingRevenue,
+    shipping,
     validCount: valid.length,
     avgTicket: valid.length ? revenue / valid.length : 0,
     discounts,

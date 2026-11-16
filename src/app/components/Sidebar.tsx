@@ -15,9 +15,11 @@ import {
   PackageSearch,
   ShoppingBasket,
   Truck,
+  MapPinned,
   MessageSquareText,
   GalleryHorizontal,
   ChevronsLeft,
+  Users,
   ChevronsRight,
   X,
   type LucideIcon,
@@ -27,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { useAppDispatch, useAppSelector } from '../store';
 import { toggleSidebar } from '../store/uiSlice';
 import { orderItemsApi, ordersApi, useReviewStatsQuery } from '../api/resources';
+import { hasPermission, ROLE_LABEL, type Permission, type StaffRole } from '../lib/permissions';
 
 interface MenuItem {
   icon: LucideIcon;
@@ -35,6 +38,8 @@ interface MenuItem {
   end?: boolean;
   /** Contador en vivo (sale de la cache de RTK Query). */
   count?: 'pendingOrders' | 'awaitingItems' | 'pendingReviews';
+  /** Sin este permiso el ítem no aparece (la ruta también lo exige). */
+  perm?: Permission;
 }
 
 const sections: { title: string; items: MenuItem[] }[] = [
@@ -42,10 +47,11 @@ const sections: { title: string; items: MenuItem[] }[] = [
     title: 'Ventas',
     items: [
       { icon: LayoutDashboard, label: 'Inicio', path: '/dashboard', end: true },
-      { icon: ShoppingCart, label: 'Órdenes', path: '/dashboard/orders', count: 'pendingOrders' },
-      { icon: Truck, label: 'Envíos', path: '/dashboard/shipments' },
-      { icon: PackageSearch, label: 'Reposición', path: '/dashboard/restock', count: 'awaitingItems' },
-      { icon: ShoppingBasket, label: 'Carritos', path: '/dashboard/carts' },
+      { icon: ShoppingCart, label: 'Órdenes', path: '/dashboard/orders', count: 'pendingOrders', perm: 'orders.manage' },
+      { icon: Truck, label: 'Envíos', path: '/dashboard/shipments', perm: 'orders.manage' },
+      { icon: MapPinned, label: 'Tarifas de envío', path: '/dashboard/shipping-zones', perm: 'shipping.config' },
+      { icon: PackageSearch, label: 'Reposición', path: '/dashboard/restock', count: 'awaitingItems', perm: 'orders.manage' },
+      { icon: ShoppingBasket, label: 'Carritos', path: '/dashboard/carts', perm: 'orders.manage' },
     ],
   },
   {
@@ -54,40 +60,41 @@ const sections: { title: string; items: MenuItem[] }[] = [
       { icon: Package, label: 'Productos', path: '/dashboard/products' },
       { icon: Boxes, label: 'Inventario', path: '/dashboard/inventory' },
       { icon: ArrowLeftRight, label: 'Movimientos', path: '/dashboard/movements' },
-      { icon: Tag, label: 'Ofertas', path: '/dashboard/offers' },
+      { icon: Tag, label: 'Ofertas', path: '/dashboard/offers', perm: 'offers.edit' },
     ],
   },
   {
     title: 'Contenido',
     items: [
-      { icon: MessageSquareText, label: 'Reseñas', path: '/dashboard/reviews', count: 'pendingReviews' },
-      { icon: GalleryHorizontal, label: 'Banners', path: '/dashboard/banners' },
+      { icon: MessageSquareText, label: 'Reseñas', path: '/dashboard/reviews', count: 'pendingReviews', perm: 'content.edit' },
+      { icon: GalleryHorizontal, label: 'Banners', path: '/dashboard/banners', perm: 'content.edit' },
     ],
   },
   {
     title: 'Maestros',
     items: [
-      { icon: FolderTree, label: 'Categorías', path: '/dashboard/categories' },
-      { icon: Award, label: 'Marcas', path: '/dashboard/brands' },
-      { icon: Building2, label: 'Proveedores', path: '/dashboard/suppliers' },
-      { icon: Hash, label: 'Etiquetas', path: '/dashboard/tags' },
+      { icon: FolderTree, label: 'Categorías', path: '/dashboard/categories', perm: 'masters.edit' },
+      { icon: Award, label: 'Marcas', path: '/dashboard/brands', perm: 'masters.edit' },
+      { icon: Building2, label: 'Proveedores', path: '/dashboard/suppliers', perm: 'masters.edit' },
+      { icon: Hash, label: 'Etiquetas', path: '/dashboard/tags', perm: 'masters.edit' },
     ],
   },
   {
     title: 'Análisis',
     items: [
       { icon: BarChart3, label: 'Estadísticas', path: '/dashboard/statistics' },
+      { icon: Users, label: 'Usuarios', path: '/dashboard/users', perm: 'users.manage' },
       { icon: Settings, label: 'Administración', path: '/dashboard/administration' },
     ],
   },
 ];
 
 /** Totales chicos para los badges del menú (amountPerPage=1 → sólo interesa totalAmount). */
-function useMenuCounts() {
+function useMenuCounts(can: (p: Permission) => boolean) {
   const opts = { pollingInterval: 60_000 };
-  const pending = ordersApi.usePage({ status: 'PENDING', amountPerPage: 1 }, opts);
-  const awaiting = orderItemsApi.usePage({ status: 'AWAITING_STOCK', amountPerPage: 1 }, opts);
-  const reviews = useReviewStatsQuery(undefined, opts);
+  const pending = ordersApi.usePage({ status: 'PENDING', amountPerPage: 1 }, { ...opts, skip: !can('orders.manage') });
+  const awaiting = orderItemsApi.usePage({ status: 'AWAITING_STOCK', amountPerPage: 1 }, { ...opts, skip: !can('orders.manage') });
+  const reviews = useReviewStatsQuery(undefined, { ...opts, skip: !can('content.edit') });
   return {
     pendingOrders: pending.data?.pagination.totalAmount ?? 0,
     awaitingItems: awaiting.data?.pagination.totalAmount ?? 0,
@@ -104,7 +111,15 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const dispatch = useAppDispatch();
   const user = useAppSelector((st) => st.auth.user);
   const collapsed = useAppSelector((st) => st.ui.sidebarCollapsed);
-  const counts = useMenuCounts();
+  const can = (p: Permission) => hasPermission(user, p);
+  const counts = useMenuCounts(can);
+  const visibleSections = sections
+    .map((section) => ({ ...section, items: section.items.filter((i) => !i.perm || can(i.perm)) }))
+    .filter((section) => section.items.length > 0);
+  const roleLabel = (user?.roles ?? [])
+    .filter((r): r is StaffRole => r in ROLE_LABEL && r !== 'CUSTOMER')
+    .map((r) => ROLE_LABEL[r])
+    .join(' · ');
 
   const displayName = user?.name || user?.email?.split('@')[0] || 'Usuario';
   const initials = displayName
@@ -151,7 +166,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-          {sections.map((section) => (
+          {visibleSections.map((section) => (
             <div key={section.title}>
               {!isCollapsed && (
                 <div className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -218,7 +233,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           {!isCollapsed && (
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-sidebar-foreground truncate">{displayName}</div>
-              <div className="text-xs text-muted-foreground truncate">{user?.roles?.join(' · ') || user?.role}</div>
+              <div className="text-xs text-muted-foreground truncate">{roleLabel || user?.role}</div>
             </div>
           )}
           <button

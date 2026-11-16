@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowUpRight, Eye, Hash, Pencil, RefreshCw, Truck } from 'lucide-react';
+import { ArrowUpRight, Eye, Hash, MapPinned, Pencil, RefreshCw, Truck } from 'lucide-react';
 import { shipmentsApi } from '../api/resources';
 import { SHIPMENT_METHODS, SHIPMENT_STATUSES, type Shipment, type ShipmentMethod, type ShipmentStatus } from '../api/types';
 import { useListFilters } from '../hooks/useListFilters';
-import { SHIPMENT_METHOD, SHIPMENT_STATUS } from '../lib/domain';
+import { SHIPMENT_METHOD, SHIPMENT_STATUS, uberStatus } from '../lib/domain';
 import { formatDate, formatDateTime, formatOrderNumber } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
 import { DataTable, stop, type Column } from '../components/DataTable';
@@ -98,7 +98,13 @@ export default function Shipments() {
         s.carrier ? (
           <div className="min-w-0">
             <div className="truncate">{s.carrier}</div>
-            {s.carrierTrackingCode && <div className="font-mono text-xs text-muted-foreground">{s.carrierTrackingCode}</div>}
+            {s.provider === 'uber' && s.providerStatus ? (
+              <Badge tone={uberStatus(s.providerStatus)!.tone} className="mt-0.5">
+                {uberStatus(s.providerStatus)!.label}
+              </Badge>
+            ) : (
+              s.carrierTrackingCode && <div className="font-mono text-xs text-muted-foreground">{s.carrierTrackingCode}</div>
+            )}
           </div>
         ) : (
           <span className="text-muted-foreground">—</span>
@@ -147,6 +153,14 @@ export default function Shipments() {
       <PageHeader
         title="Envíos"
         description="Seguimiento de entregas a domicilio y retiros en el local. Los envíos se crean desde el detalle de cada orden."
+        actions={
+          <Link
+            to="/dashboard/shipping-zones"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium hover:bg-accent"
+          >
+            <MapPinned className="w-4 h-4" /> Tarifas de envío
+          </Link>
+        }
       />
 
       <div className="overflow-x-auto">

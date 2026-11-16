@@ -15,7 +15,6 @@ export interface VariantDraft {
   stockThreshold: string;
   requestTime: string;
   availableWeb: boolean;
-  availablePedidosYa: boolean;
 }
 
 export const emptyVariant = (measure: Measure = 'KG', name = ''): VariantDraft => ({
@@ -29,7 +28,6 @@ export const emptyVariant = (measure: Measure = 'KG', name = ''): VariantDraft =
   stockThreshold: '',
   requestTime: '',
   availableWeb: true,
-  availablePedidosYa: true,
 });
 
 export type VariantErrors = Partial<Record<keyof VariantDraft, string>>;
@@ -57,7 +55,6 @@ export function draftToInput(d: VariantDraft): VariantInput {
     stockThreshold: num(d.stockThreshold) ?? 0,
     requestTime: d.requestTime.trim(),
     availableWeb: d.availableWeb,
-    availablePedidosYa: d.availablePedidosYa,
   };
 }
 
@@ -147,10 +144,8 @@ export function VariantFields({
         <input className={inputClass} value={draft.packaging} onChange={(e) => onChange({ packaging: e.target.value })} placeholder="250, 500, 1000" />
       </Field>
 
-      <FormGrid>
-        <SwitchRow label="Disponible en la web" checked={draft.availableWeb} onChange={(v) => onChange({ availableWeb: v })} />
-        <SwitchRow label="Disponible en PedidosYa" checked={draft.availablePedidosYa} onChange={(v) => onChange({ availablePedidosYa: v })} />
-      </FormGrid>
+      <SwitchRow label="Disponible en la web"
+          description="Oculta esta variante en la tienda. Si ninguna variante queda visible, el producto deja de aparecer." checked={draft.availableWeb} onChange={(v) => onChange({ availableWeb: v })} />
     </div>
   );
 }

@@ -1,33 +1,38 @@
 import { useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Plus, Scale, X } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ListPlus, Plus, Scale, X } from 'lucide-react';
 import { movementsApi, variantsApi } from '../api/resources';
 import { MOVEMENT_TYPES, type Id, type Movement, type MovementType } from '../api/types';
 import { useListFilters } from '../hooks/useListFilters';
+import { useCan } from '../hooks/useCan';
 import { MOVEMENT_TYPE, formatQty } from '../lib/domain';
 import { cn, formatCurrency, formatDateTime } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { StatTile } from '../components/StatTile';
 import { DataTable, type Column } from '../components/DataTable';
-import { DateFilter, FilterBar, FilterSelect } from '../components/Filters';
+import { DateFilter, FilterBar, FilterSelect, SearchInput } from '../components/Filters';
 import { MovementTypeBadge } from '../components/Badge';
 import { VariantPicker, variantLabel } from '../components/CatalogPickers';
 import { MovementFormModal } from '../components/movements/MovementFormModal';
+import { BulkMovementModal } from '../components/movements/BulkMovementModal';
 
 export default function Movements() {
   const f = useListFilters(
     'movements',
-    { productVariantId: '' as Id | '', type: '' as MovementType | '', from: '', to: '', day: '' },
-    { pageSize: 50 },
+    { search: '', productVariantId: '' as Id | '', type: '' as MovementType | '', from: '', to: '', day: '' },
+    { pageSize: 50, textKeys: ['search'] },
   );
   const v = f.values;
   const variantId = v.productVariantId ? Number(v.productVariantId) : null;
   const [formOpen, setFormOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const canRegister = useCan()('stock.manage');
 
   const { data: variant } = variantsApi.useOne(variantId);
 
   const q = movementsApi.usePage({
     detalle: true,
+    search: f.debounced.search,
     productVariantId: variantId ?? '',
     type: v.type,
     // `day` (un día puntual) tiene prioridad sobre el rango.
@@ -57,13 +62,19 @@ export default function Movements() {
     { key: 'date', header: 'Fecha', cell: (m) => <span className="whitespace-nowrap">{formatDateTime(m.createdAt)}</span> },
     {
       key: 'variant',
-      header: 'Variante',
-      cell: (m) =>
-        m.productVariant?.name ? (
-          <span className="font-medium">{m.productVariant.name}</span>
-        ) : (
-          <span className="text-muted-foreground">Variante #{m.productVariantId}</span>
-        ),
+      header: 'Producto',
+      cell: (m) => {
+        const pv = m.productVariant;
+        if (!pv) return <span className="text-muted-foreground">Variante #{m.productVariantId}</span>;
+        const product = pv.product?.name;
+        const showVariant = pv.name && pv.name !== product && pv.name !== 'default';
+        return (
+          <div className="min-w-0">
+            <div className="truncate font-medium">{product ?? pv.name}</div>
+            {product && showVariant && <div className="truncate text-xs text-muted-foreground">{pv.name}</div>}
+          </div>
+        );
+      },
     },
     { key: 'type', header: 'Tipo', cell: (m) => <MovementTypeBadge type={m.type} /> },
     {
@@ -101,10 +112,18 @@ export default function Movements() {
         title="Movimientos de stock"
         description="Historial de ingresos, salidas, ajustes, devoluciones y producción de mixes. Más recientes primero."
         actions={
-          <Button onClick={() => setFormOpen(true)}>
-            <Plus className="w-4 h-4" />
-            Registrar movimiento
-          </Button>
+          canRegister && (
+            <>
+              <Button variant="outline" onClick={() => setBulkOpen(true)}>
+                <ListPlus className="w-4 h-4" />
+                Carga masiva
+              </Button>
+              <Button onClick={() => setFormOpen(true)}>
+                <Plus className="w-4 h-4" />
+                Registrar movimiento
+              </Button>
+            </>
+          )
         }
       />
 
@@ -154,6 +173,7 @@ export default function Movements() {
         }}
         toolbar={
           <FilterBar activeCount={f.activeCount} onReset={f.reset}>
+            <SearchInput value={v.search} onChange={(search) => f.set({ search })} placeholder="Buscar producto o variante…" />
             <div className="w-full sm:w-72">
               <VariantPicker
                 value={variantId}
@@ -180,7 +200,12 @@ export default function Movements() {
         }
       />
 
-      <MovementFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} defaultVariantId={variantId} />
+      {canRegister && (
+        <>
+          <MovementFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} defaultVariantId={variantId} />
+          <BulkMovementModal isOpen={bulkOpen} onClose={() => setBulkOpen(false)} />
+        </>
+      )}
     </>
   );
 }

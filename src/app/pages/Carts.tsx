@@ -39,8 +39,11 @@ function lineValue(it: CartItem) {
 const cartValue = (c: Cart) => c.summary?.total ?? (c.items ?? []).reduce((acc, it) => acc + lineValue(it), 0);
 
 function owner(c: Cart) {
-  if (c.userSuperTokensId) return { label: c.userSuperTokensId.slice(0, 12) + '…', guest: false };
-  return { label: c.sessionId ? `Invitado · ${c.sessionId.slice(0, 8)}` : 'Invitado', guest: true };
+  if (c.userSuperTokensId) {
+    const label = c.user?.email || c.user?.name || c.userSuperTokensId.slice(0, 12) + '…';
+    return { label, name: c.user?.email ? c.user?.name : null, guest: false };
+  }
+  return { label: c.sessionId ? `Invitado · ${c.sessionId.slice(0, 8)}` : 'Invitado', name: null, guest: true };
 }
 
 export default function Carts() {
@@ -79,9 +82,10 @@ export default function Carts() {
         return o.guest ? (
           <Badge tone="default">{o.label}</Badge>
         ) : (
-          <span className="font-mono text-xs" title={c.userSuperTokensId ?? ''}>
-            {o.label}
-          </span>
+          <div className="min-w-0" title={c.userSuperTokensId ?? ''}>
+            <div className="truncate font-medium">{o.label}</div>
+            {o.name?.trim() && <div className="truncate text-xs text-muted-foreground">{o.name}</div>}
+          </div>
         );
       },
     },
@@ -168,7 +172,7 @@ export default function Carts() {
               <SheetHeader>
                 <SheetTitle>Carrito #{selected.id}</SheetTitle>
                 <SheetDescription>
-                  {owner(selected).guest ? 'Invitado' : `Usuario ${selected.userSuperTokensId}`} · actualizado{' '}
+                  {owner(selected).guest ? 'Invitado' : owner(selected).label} · actualizado{' '}
                   {formatRelative(selected.updatedAt)}
                 </SheetDescription>
               </SheetHeader>

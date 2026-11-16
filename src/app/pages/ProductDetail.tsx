@@ -21,6 +21,7 @@ import { useAppDispatch } from '../store';
 import { patchFilters } from '../store/filtersSlice';
 import { useActiveToggle } from '../hooks/useActiveToggle';
 import { useAction } from '../hooks/useAction';
+import { useCan } from '../hooks/useCan';
 import { describeOffer, formatQty, isMix, MEASURE_LABEL, offerState, stockLevel } from '../lib/domain';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
@@ -59,6 +60,10 @@ export default function ProductDetail() {
   const toggleProduct = useActiveToggle(setProductActive, 'el producto');
   const toggleVariant = useActiveToggle(setVariantActive, 'la variante');
   const modals = useVariantModals();
+  const can = useCan();
+  const canEdit = can('catalog.edit');
+  // El stock se ajusta con PUT /product/variant, que el backend protege con catalog.edit.
+  const canAdjustStock = canEdit && can('stock.manage');
 
   const [editing, setEditing] = useState(false);
   const [addingVariant, setAddingVariant] = useState(false);
@@ -162,14 +167,9 @@ export default function ProductDetail() {
     },
     {
       key: 'channels',
-      header: 'Canales',
+      header: 'Web',
       hideOnMobile: true,
-      cell: (v) => (
-        <div className="flex flex-wrap gap-1">
-          <Badge tone={v.availableWeb ? 'info' : 'default'}>{v.availableWeb ? 'Web' : 'Sin web'}</Badge>
-          <Badge tone={v.availablePedidosYa ? 'info' : 'default'}>{v.availablePedidosYa ? 'PedidosYa' : 'Sin PY'}</Badge>
-        </div>
-      ),
+      cell: (v) => <Badge tone={v.availableWeb ? 'info' : 'default'}>{v.availableWeb ? 'Visible' : 'Oculta'}</Badge>,
     },
     { key: 'active', header: 'Estado', cell: (v) => <ActiveBadge active={v.active} /> },
     {
@@ -179,15 +179,16 @@ export default function ProductDetail() {
       cell: (v) => (
         <RowActions
           actions={[
-            { label: 'Editar precio', icon: <DollarSign className="w-4 h-4" />, onClick: () => modals.show('price', v) },
-            { label: 'Ajustar stock', icon: <Boxes className="w-4 h-4" />, onClick: () => modals.show('stock', v) },
+            { label: 'Editar precio', icon: <DollarSign className="w-4 h-4" />, onClick: () => modals.show('price', v), hidden: !canEdit },
+            { label: 'Ajustar stock', icon: <Boxes className="w-4 h-4" />, onClick: () => modals.show('stock', v), hidden: !canAdjustStock },
             {
               label: 'Disponibilidad y presentaciones',
               icon: <Settings2 className="w-4 h-4" />,
               onClick: () => modals.show('availability', v),
+              hidden: !canEdit,
             },
-            { label: 'Receta', icon: <Soup className="w-4 h-4" />, onClick: () => modals.show('recipe', v), hidden: !isMix(v) },
-            { label: 'Imágenes', icon: <ImageIcon className="w-4 h-4" />, onClick: () => modals.show('images', v) },
+            { label: 'Receta', icon: <Soup className="w-4 h-4" />, onClick: () => modals.show('recipe', v), hidden: !canEdit || !isMix(v) },
+            { label: 'Imágenes', icon: <ImageIcon className="w-4 h-4" />, onClick: () => modals.show('images', v), hidden: !canEdit },
             { label: 'Ver movimientos', icon: <ArrowLeftRight className="w-4 h-4" />, onClick: () => showMovements(v) },
             {
               label: v.active ? 'Desactivar' : 'Activar',
@@ -195,6 +196,7 @@ export default function ProductDetail() {
               onClick: () => toggleVariant(v.id, v.name, v.active),
               danger: v.active,
               separator: true,
+              hidden: !canEdit,
             },
           ]}
         />
@@ -225,19 +227,24 @@ export default function ProductDetail() {
         }
         description={product.description || undefined}
         actions={
-          <>
-            <Button variant="outline" onClick={() => setEditing(true)}>
-              <Pencil className="w-4 h-4" /> Editar
-            </Button>
-            <Button
-              variant={product.active ? 'outline' : 'primary'}
-              onClick={() => toggleProduct(product.id, product.name, product.active)}
-              tooltip="Requiere rol ADMIN"
-            >
-              {product.active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
-              {product.active ? 'Desactivar' : 'Activar'}
-            </Button>
-          </>
+          (canEdit || can('catalog.delete')) && (
+            <>
+              {canEdit && (
+                <Button variant="outline" onClick={() => setEditing(true)}>
+                  <Pencil className="w-4 h-4" /> Editar
+                </Button>
+              )}
+              {can('catalog.delete') && (
+                <Button
+                  variant={product.active ? 'outline' : 'primary'}
+                  onClick={() => toggleProduct(product.id, product.name, product.active)}
+                >
+                  {product.active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                  {product.active ? 'Desactivar' : 'Activar'}
+                </Button>
+              )}
+            </>
+          )
         }
       />
 
@@ -269,44 +276,50 @@ export default function ProductDetail() {
                   className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
                 >
                   {t.name}
-                  <button
-                    type="button"
-                    aria-label={`Quitar ${t.name}`}
-                    disabled={removingTag}
-                    onClick={() => removeTag(t.id).catch(() => undefined)}
-                    className="rounded hover:bg-primary/20"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      aria-label={`Quitar ${t.name}`}
+                      disabled={removingTag}
+                      onClick={() => removeTag(t.id).catch(() => undefined)}
+                      className="rounded hover:bg-primary/20"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </span>
               ))}
             </div>
-            <div className="flex gap-2">
-              <div className="min-w-0 flex-1">
-                <TagMultiSelect value={newTags} onChange={setNewTags} exclude={tags.map((t) => t.id)} />
+            {canEdit && (
+              <div className="flex gap-2">
+                <div className="min-w-0 flex-1">
+                  <TagMultiSelect value={newTags} onChange={setNewTags} exclude={tags.map((t) => t.id)} />
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={!newTags.length}
+                  loading={addingTags}
+                  onClick={() =>
+                    addTags(newTags)
+                      .then(() => setNewTags([]))
+                      .catch(() => undefined)
+                  }
+                >
+                  Agregar
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                disabled={!newTags.length}
-                loading={addingTags}
-                onClick={() =>
-                  addTags(newTags)
-                    .then(() => setNewTags([]))
-                    .catch(() => undefined)
-                }
-              >
-                Agregar
-              </Button>
-            </div>
+            )}
           </div>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle>Ofertas</CardTitle>
-            <Link to="/dashboard/offers" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-              Gestionar <ExternalLink className="w-3 h-3" />
-            </Link>
+            {can('offers.edit') && (
+              <Link to="/dashboard/offers" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                Gestionar <ExternalLink className="w-3 h-3" />
+              </Link>
+            )}
           </CardHeader>
           {offers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay ofertas para este producto.</p>
@@ -334,9 +347,11 @@ export default function ProductDetail() {
             <h2 className="text-lg font-semibold">Variantes</h2>
             <p className="text-sm text-muted-foreground">Precio, stock, disponibilidad y recetas por variante.</p>
           </div>
-          <Button onClick={() => setAddingVariant(true)}>
-            <Plus className="w-4 h-4" /> Agregar variante
-          </Button>
+          {canEdit && (
+            <Button onClick={() => setAddingVariant(true)}>
+              <Plus className="w-4 h-4" /> Agregar variante
+            </Button>
+          )}
         </div>
         <DataTable
           columns={columns}
@@ -347,15 +362,19 @@ export default function ProductDetail() {
           empty={{
             icon: <Globe className="w-6 h-6" />,
             title: 'Sin variantes',
-            description: 'Agregá una variante para poder venderlo.',
+            description: canEdit ? 'Agregá una variante para poder venderlo.' : undefined,
           }}
         />
       </div>
 
       <ProductReviewsCard product={product} />
 
-      <EditProductModal product={product} isOpen={editing} onClose={() => setEditing(false)} />
-      <AddVariantModal product={product} isOpen={addingVariant} onClose={() => setAddingVariant(false)} />
+      {canEdit && (
+        <>
+          <EditProductModal product={product} isOpen={editing} onClose={() => setEditing(false)} />
+          <AddVariantModal product={product} isOpen={addingVariant} onClose={() => setAddingVariant(false)} />
+        </>
+      )}
       {modals.element}
     </>
   );

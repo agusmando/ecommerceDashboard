@@ -5,9 +5,11 @@ import { MasterPage, type MasterApi, type MasterConfig } from '../components/mas
 import { RelationEditor } from '../components/masters/RelationEditor';
 import { ProductMultiSelect } from '../components/CatalogPickers';
 import { formatDate } from '../lib/utils';
+import { useCan } from '../hooks/useCan';
 
 function BrandDetail({ brand }: { brand: Brand }) {
   const [setProducts] = brandsApi.useProducts();
+  const canAssociate = useCan()('catalog.delete');
   return (
     <>
       {brand.description && <p className="text-sm text-muted-foreground">{brand.description}</p>}
@@ -23,6 +25,7 @@ function BrandDetail({ brand }: { brand: Brand }) {
       </dl>
       <RelationEditor
         title="Productos"
+        readOnly={!canAssociate}
         items={brand.products ?? []}
         linkTo={(id) => `/dashboard/products/${id}`}
         emptyText="La marca no tiene productos"
@@ -36,7 +39,8 @@ function BrandDetail({ brand }: { brand: Brand }) {
         emptyText="Ningún proveedor distribuye esta marca"
       />
       <p className="text-xs text-muted-foreground">
-        Asociar/desasociar productos requiere rol ADMIN. Los proveedores se asignan desde Proveedores.
+        {!canAssociate && 'Solo un administrador puede asociar o desasociar productos. '}
+        Los proveedores se asignan desde Proveedores.
       </p>
     </>
   );

@@ -256,7 +256,6 @@ export function StockModal({ variant, isOpen, onClose }: ModalProps) {
 
 export function AvailabilityModal({ variant, isOpen, onClose }: ModalProps) {
   const [web, setWeb] = useState(true);
-  const [py, setPy] = useState(true);
   const [packaging, setPackaging] = useState('');
   const [threshold, setThreshold] = useState('');
   const [requestTime, setRequestTime] = useState('');
@@ -266,7 +265,6 @@ export function AvailabilityModal({ variant, isOpen, onClose }: ModalProps) {
   useEffect(() => {
     if (!isOpen) return;
     setWeb(variant.availableWeb);
-    setPy(variant.availablePedidosYa);
     setPackaging((variant.packagingOptions ?? []).join(', '));
     setThreshold(String(variant.stockThreshold ?? 0));
     setRequestTime(variant.requestTime ?? '');
@@ -281,7 +279,6 @@ export function AvailabilityModal({ variant, isOpen, onClose }: ModalProps) {
       onSubmit={() =>
         save({
           availableWeb: web,
-          availablePedidosYa: py,
           packagingOptions: parseNumberList(packaging),
           stockThreshold: num(threshold) ?? 0,
           requestTime: requestTime.trim(),
@@ -289,8 +286,8 @@ export function AvailabilityModal({ variant, isOpen, onClose }: ModalProps) {
       }
     >
       <div className="space-y-4">
-        <SwitchRow label="Disponible en la web" checked={web} onChange={setWeb} />
-        <SwitchRow label="Disponible en PedidosYa" checked={py} onChange={setPy} />
+        <SwitchRow label="Disponible en la web"
+          description="Oculta esta variante en la tienda. Si ninguna variante queda visible, el producto deja de aparecer." checked={web} onChange={setWeb} />
         <Field label="Presentaciones" hint={`Tamaños en ${unit}, separados por coma. Vacío = venta suelta.`}>
           <input className={inputClass} value={packaging} onChange={(e) => setPackaging(e.target.value)} placeholder="250, 500, 1000" />
         </Field>

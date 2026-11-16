@@ -4,6 +4,7 @@ import { BadgeCheck, Check, ImageIcon, MessageSquareReply, Trash2, X } from 'luc
 import { useDeleteReviewMutation, useModerateReviewMutation } from '../../api/resources';
 import type { Review } from '../../api/types';
 import { useAction } from '../../hooks/useAction';
+import { useCan } from '../../hooks/useCan';
 import { cn, formatDateTime, formatRelative } from '../../lib/utils';
 import { Badge, ReviewStatusBadge } from '../Badge';
 import { Button } from '../Button';
@@ -63,6 +64,7 @@ type Actions = ReturnType<typeof useReviewActions>;
 export function ReviewItem({ review: r, actions, showProduct = true, compact }: { review: Review; actions: Actions; showProduct?: boolean; compact?: boolean }) {
   const variant = r.productVariant;
   const img = variant?.images?.[0]?.secure_url;
+  const canModerate = useCan()('content.edit');
 
   return (
     <article className={cn('flex flex-col gap-3 sm:flex-row sm:items-start', compact ? 'py-3' : 'p-4')}>
@@ -125,27 +127,29 @@ export function ReviewItem({ review: r, actions, showProduct = true, compact }: 
         )}
       </div>
 
-      <div className="flex shrink-0 items-center">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {r.status !== 'APPROVED' && (
-            <Button size="sm" onClick={() => actions.approve(r)} disabled={actions.approving}>
-              <Check className="w-4 h-4" /> Aprobar
+      {canModerate && (
+        <div className="flex shrink-0 items-center">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {r.status !== 'APPROVED' && (
+              <Button size="sm" onClick={() => actions.approve(r)} disabled={actions.approving}>
+                <Check className="w-4 h-4" /> Aprobar
+              </Button>
+            )}
+            {r.status !== 'REJECTED' && (
+              <Button size="sm" variant="outline" onClick={() => actions.reject(r)}>
+                <X className="w-4 h-4" /> Rechazar
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => actions.reply(r)} aria-label={r.reply ? 'Editar respuesta' : 'Responder'}>
+              <MessageSquareReply className="w-4 h-4" />
+              <span className="hidden md:inline">{r.reply ? 'Editar respuesta' : 'Responder'}</span>
             </Button>
-          )}
-          {r.status !== 'REJECTED' && (
-            <Button size="sm" variant="outline" onClick={() => actions.reject(r)}>
-              <X className="w-4 h-4" /> Rechazar
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={() => actions.reply(r)} aria-label={r.reply ? 'Editar respuesta' : 'Responder'}>
-            <MessageSquareReply className="w-4 h-4" />
-            <span className="hidden md:inline">{r.reply ? 'Editar respuesta' : 'Responder'}</span>
-          </Button>
-          <RowActions
-            actions={[{ label: 'Eliminar', icon: <Trash2 className="w-4 h-4" />, onClick: () => actions.remove(r), danger: true }]}
-          />
+            <RowActions
+              actions={[{ label: 'Eliminar', icon: <Trash2 className="w-4 h-4" />, onClick: () => actions.remove(r), danger: true }]}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </article>
   );
 }
