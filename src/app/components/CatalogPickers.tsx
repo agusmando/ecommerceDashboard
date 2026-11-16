@@ -56,11 +56,11 @@ export function BrandMultiSelect(p: MultiProps) {
   return <MultiSelect {...p} options={options.filter((o) => !p.exclude?.includes(o.value as Id))} loading={loading} placeholder={p.placeholder ?? 'Elegí marcas'} onChange={(v) => p.onChange(v as Id[])} />;
 }
 
-/** Productos con búsqueda en el servidor (`?name=`). */
+/** Productos con búsqueda en el servidor (`?q=`, la misma de la tienda). */
 export function ProductMultiSelect(p: MultiProps) {
   const [q, setQ] = useState('');
   const dq = useDebouncedValue(q, 300);
-  const { data, isFetching } = productsApi.usePage({ name: dq, amountPerPage: 30 });
+  const { data, isFetching } = productsApi.usePage({ q: dq, amountPerPage: 30 });
   const options = useMemo(
     () => (data?.content ?? []).filter((x) => !p.exclude?.includes(x.id)).map((x) => ({ value: x.id, label: x.name })),
     [data, p.exclude],
@@ -68,7 +68,7 @@ export function ProductMultiSelect(p: MultiProps) {
   return <MultiSelect {...p} options={options} loading={isFetching && !data} onSearch={setQ} placeholder={p.placeholder ?? 'Buscar productos'} onChange={(v) => p.onChange(v as Id[])} />;
 }
 
-/** Producto único con búsqueda en el servidor (`?name=`). `onChange` devuelve también el nombre. */
+/** Producto único con búsqueda en el servidor (`?q=`). `onChange` devuelve también el nombre. */
 export function ProductPicker({
   value,
   label,
@@ -86,7 +86,7 @@ export function ProductPicker({
 }) {
   const [q, setQ] = useState('');
   const dq = useDebouncedValue(q, 300);
-  const { data, isFetching } = productsApi.usePage({ name: dq, amountPerPage: 30 });
+  const { data, isFetching } = productsApi.usePage({ q: dq, amountPerPage: 30 });
   const rows = data?.content ?? [];
   return (
     <Combobox
@@ -95,7 +95,7 @@ export function ProductPicker({
       onSearch={setQ}
       loading={isFetching && !data}
       placeholder={placeholder}
-      searchPlaceholder="Nombre del producto…"
+      searchPlaceholder="Producto, marca, etiqueta…"
       clearable={clearable}
       className={className}
       options={rows.map((p) => ({ value: p.id, label: p.active ? p.name : `${p.name} (inactivo)` }))}
@@ -133,7 +133,7 @@ export function VariantPicker({
   const [q, setQ] = useState('');
   const dq = useDebouncedValue(q, 300);
   const { data, isFetching } = variantsApi.usePage({
-    search: dq, // producto o variante
+    q: dq, // producto o variante, como el buscador de la tienda
     detalle: true,
     active: onlyActive ? true : '',
     amountPerPage: 30,

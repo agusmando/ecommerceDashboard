@@ -107,7 +107,7 @@ export default function Products() {
   const { values, debounced } = f;
 
   const query = productsApi.usePage({
-    name: debounced.name,
+    q: debounced.name,
     category: debounced.category,
     brand: debounced.brand,
     tags: debounced.tags,
@@ -211,7 +211,7 @@ export default function Products() {
         />
       }
     >
-      <SearchInput value={values.name} onChange={(name) => f.set({ name })} placeholder="Buscar por nombre…" />
+      <SearchInput value={values.name} onChange={(name) => f.set({ name })} placeholder="Buscar producto, marca, etiqueta…" />
       <FilterSelect value={values.category} onChange={(category) => f.set({ category })} options={categoryOptions} placeholder="Todas las categorías" />
       <FilterSelect value={values.brand} onChange={(brand) => f.set({ brand })} options={brandOptions} placeholder="Todas las marcas" />
       <FilterSelect

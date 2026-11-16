@@ -66,7 +66,7 @@ export default function Inventory() {
   const numOrEmpty = (v: string) => (v.trim() === '' ? '' : Number(v));
 
   const query = variantsApi.usePage({
-    search: debounced.name,
+    q: debounced.name,
     minPrice: numOrEmpty(debounced.minPrice),
     maxPrice: numOrEmpty(debounced.maxPrice),
     maxStock: numOrEmpty(debounced.maxStock),

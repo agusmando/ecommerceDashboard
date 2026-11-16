@@ -220,6 +220,8 @@ export interface Product {
 }
 
 export interface ProductFilters extends ListParams {
+  /** Búsqueda como la de la tienda: sin acentos, todas las palabras en nombre, descripción, categoría, marca, etiquetas o variantes; ordena por relevancia. */
+  q?: string;
   name?: string;
   description?: string;
   category?: string;
@@ -231,6 +233,8 @@ export interface ProductFilters extends ListParams {
 }
 
 export interface VariantFilters extends ListParams {
+  /** Búsqueda como la de la tienda sobre producto + variante (ver ProductFilters.q). */
+  q?: string;
   name?: string;
   /** Texto libre: nombre del producto o de la variante. */
   search?: string;
