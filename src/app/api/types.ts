@@ -287,6 +287,7 @@ export interface UpdateProductInput {
 /** Body de `PUT /product/variant/:id`. Cada caso de la colección es un subconjunto. */
 export interface UpdateVariantInput {
   name?: string;
+  contentMeasure?: Measure;
   price?: number;
   profitMargin?: number;
   roundingOption?: number;

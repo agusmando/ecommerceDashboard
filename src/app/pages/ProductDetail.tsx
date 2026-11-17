@@ -181,6 +181,7 @@ export default function ProductDetail() {
       cell: (v) => (
         <RowActions
           actions={[
+            { label: 'Editar variante', icon: <Pencil className="w-4 h-4" />, onClick: () => modals.show('edit', v), hidden: !canEdit },
             { label: 'Editar precio', icon: <DollarSign className="w-4 h-4" />, onClick: () => modals.show('price', v), hidden: !canEdit },
             { label: 'Ajustar stock', icon: <Boxes className="w-4 h-4" />, onClick: () => modals.show('stock', v), hidden: !canAdjustStock },
             {

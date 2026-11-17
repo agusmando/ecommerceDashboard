@@ -12,10 +12,10 @@ import { Segmented } from '../Filters';
 import { Skeleton } from '../States';
 import { VariantPicker, variantLabel } from '../CatalogPickers';
 import { ImageInput } from './ImageInput';
-import { LocalSelect, ROUNDING_OPTIONS } from './VariantFields';
+import { LocalSelect, ROUNDING_OPTIONS, validateVariant, variantToDraft, VariantFields, type VariantDraft, type VariantErrors } from './VariantFields';
 import { cld } from '../../lib/cloudinary';
 
-export type VariantModalKind = 'price' | 'stock' | 'availability' | 'recipe' | 'images';
+export type VariantModalKind = 'edit' | 'price' | 'stock' | 'availability' | 'recipe' | 'images';
 
 interface ModalProps {
   variant: ProductVariant;
@@ -79,6 +79,95 @@ function Shell({
     >
       {children}
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------- Edición completa
+
+/**
+ * Mismo formulario que el alta. Solo se envían los campos que cambiaron
+ * (así no se dispara el recálculo en cascada de mixes si el precio no se tocó).
+ * El stock y la receta tienen sus propios modales.
+ */
+export function EditVariantModal({ variant, isOpen, onClose }: ModalProps) {
+  const [draft, setDraft] = useState<VariantDraft>(() => variantToDraft(variant));
+  const [errors, setErrors] = useState<VariantErrors>({});
+  const [save, busy] = useVariantSave(variant, 'Variante actualizada', onClose);
+  const mix = isMix(variant);
+  const productIsLocal = variant.product?.isLocal ?? (variant.isLocal == null ? variant.local : undefined);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setDraft(variantToDraft(variant));
+    setErrors({});
+  }, [isOpen, variant]);
+
+  const original = useMemo(() => variantToDraft(variant), [variant]);
+  const measureChanged = draft.contentMeasure !== original.contentMeasure;
+
+  const submit = () => {
+    const e = validateVariant(draft, { requirePrice: !mix });
+    setErrors(e);
+    if (Object.keys(e).length) return;
+
+    const body: UpdateVariantInput = {};
+    const changed = (k: keyof VariantDraft) => draft[k] !== original[k];
+    if (changed('name')) body.name = draft.name.trim();
+    if (changed('contentMeasure')) body.contentMeasure = draft.contentMeasure;
+    if (!mix && (changed('price') || changed('marginPct'))) {
+      body.price = Number(draft.price);
+      body.profitMargin = (num(draft.marginPct) ?? 0) / 100;
+    }
+    if (changed('roundingOption')) body.roundingOption = Number(draft.roundingOption);
+    if (changed('packaging')) body.packagingOptions = parseNumberList(draft.packaging);
+    if (changed('stockThreshold')) body.stockThreshold = num(draft.stockThreshold) ?? 0;
+    if (changed('requestTime')) body.requestTime = draft.requestTime.trim();
+    if (changed('availableWeb')) body.availableWeb = draft.availableWeb;
+    if (changed('isLocal')) body.isLocal = fromLocalChoice(draft.isLocal);
+
+    if (!Object.keys(body).length) return onClose();
+    save(body);
+  };
+
+  return (
+    <Shell title={`Editar variante · ${variant.name}`} isOpen={isOpen} onClose={onClose} busy={busy} onSubmit={submit} size="lg">
+      <div className="space-y-4">
+        {mix && (
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+            Es un mix: su costo se calcula a partir de la receta (se edita desde «Receta»). Solo podés cambiar el redondeo.
+          </p>
+        )}
+        <VariantFields
+          draft={draft}
+          onChange={(p) => setDraft((d) => ({ ...d, ...p }))}
+          errors={errors}
+          hidePricing={mix}
+          productIsLocal={productIsLocal}
+          hideStock
+        />
+        {mix && (
+          <Field label="Redondeo">
+            <select className={inputClass} value={draft.roundingOption} onChange={(e) => setDraft((d) => ({ ...d, roundingOption: e.target.value }))}>
+              {ROUNDING_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        {measureChanged && variant.currentStock > 0 && (
+          <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+            Cambiar la unidad no convierte el stock: hoy hay {formatQty(variant.currentStock, variant.contentMeasure)} y el
+            número se va a interpretar en {draft.contentMeasure === 'KG' ? 'gramos' : draft.contentMeasure.toLowerCase()}.
+            Revisá el stock después de guardar.
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Stock actual: {formatQty(variant.currentStock, variant.contentMeasure)} — se ajusta desde «Ajustar stock».
+        </p>
+      </div>
+    </Shell>
   );
 }
 
@@ -553,6 +642,7 @@ export function useVariantModals() {
   if (state) {
     const props = { variant: state.variant, isOpen: open, onClose: close };
     element = {
+      edit: <EditVariantModal {...props} />,
       price: <PriceModal {...props} />,
       stock: <StockModal {...props} />,
       availability: <AvailabilityModal {...props} />,

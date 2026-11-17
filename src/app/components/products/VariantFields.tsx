@@ -1,5 +1,5 @@
-import { MEASURES, type Measure, type VariantInput } from '../../api/types';
-import { computeFinalPrice, fromLocalChoice, LOCAL_CHOICES, priceUnit, type LocalChoice } from '../../lib/domain';
+import { MEASURES, type Measure, type ProductVariant, type VariantInput } from '../../api/types';
+import { computeFinalPrice, fromLocalChoice, LOCAL_CHOICES, priceUnit, toLocalChoice, type LocalChoice } from '../../lib/domain';
 import { formatCurrency } from '../../lib/utils';
 import { AffixInput, Field, FormGrid, inputClass, num, parseNumberList, SwitchRow } from '../Form';
 
@@ -31,6 +31,21 @@ export const emptyVariant = (measure: Measure = 'KG', name = ''): VariantDraft =
   requestTime: '',
   availableWeb: true,
   isLocal: '',
+});
+
+/** Borrador a partir de una variante existente (para editarla). */
+export const variantToDraft = (v: ProductVariant): VariantDraft => ({
+  name: v.name,
+  price: v.price != null ? String(v.price) : '',
+  marginPct: String(Math.round((v.profitMargin ?? 0) * 10000) / 100),
+  roundingOption: String(v.roundingOption ?? 10),
+  contentMeasure: v.contentMeasure,
+  packaging: (v.packagingOptions ?? []).join(', '),
+  currentStock: String(v.currentStock ?? 0),
+  stockThreshold: String(v.stockThreshold ?? 0),
+  requestTime: v.requestTime ?? '',
+  availableWeb: v.availableWeb,
+  isLocal: toLocalChoice(v.isLocal),
 });
 
 export type VariantErrors = Partial<Record<keyof VariantDraft, string>>;
@@ -70,13 +85,14 @@ export const ROUNDING_OPTIONS = [
 
 const stockUnit = (m: Measure) => (m === 'KG' ? 'g' : m.toLowerCase());
 
-/** Campos de una variante simple (alta de producto o nueva variante). */
+/** Campos de una variante (alta de producto, nueva variante o edición). */
 export function VariantFields({
   draft,
   onChange,
   errors = {},
   hidePricing = false,
   productIsLocal = false,
+  hideStock = false,
 }: {
   draft: VariantDraft;
   onChange: (patch: Partial<VariantDraft>) => void;
@@ -85,6 +101,8 @@ export function VariantFields({
   hidePricing?: boolean;
   /** Valor del producto, para explicar qué significa "igual que el producto". */
   productIsLocal?: boolean;
+  /** En edición el stock no se toca acá: se ajusta con su propio modal (queda el movimiento). */
+  hideStock?: boolean;
 }) {
   const final = computeFinalPrice(Number(draft.price) || 0, (Number(draft.marginPct) || 0) / 100, Number(draft.roundingOption));
   const unit = stockUnit(draft.contentMeasure);
@@ -135,10 +153,12 @@ export function VariantFields({
         </>
       )}
 
-      <FormGrid cols={3}>
+      <FormGrid cols={hideStock ? 2 : 3}>
+        {!hideStock && (
         <Field label="Stock inicial" hint={`En ${unit}. Se registra como ingreso.`} error={errors.currentStock}>
           <AffixInput suffix={unit} type="number" min={0} value={draft.currentStock} onChange={(e) => onChange({ currentStock: e.target.value })} />
         </Field>
+        )}
         <Field label="Umbral de stock" hint="Debajo de esto no aplican ofertas" error={errors.stockThreshold}>
           <AffixInput suffix={unit} type="number" min={0} value={draft.stockThreshold} onChange={(e) => onChange({ stockThreshold: e.target.value })} />
         </Field>

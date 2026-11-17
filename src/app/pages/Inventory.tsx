@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertTriangle, Boxes, DollarSign, ExternalLink, PackageX, Power, PowerOff, Settings2 } from 'lucide-react';
+import { AlertTriangle, Boxes, DollarSign, ExternalLink, PackageX, Pencil, Power, PowerOff, Settings2 } from 'lucide-react';
 import { variantsApi } from '../api/resources';
 import type { ProductVariant } from '../api/types';
 import { useListFilters } from '../hooks/useListFilters';
@@ -138,6 +138,7 @@ export default function Inventory() {
       cell: (v) => (
         <RowActions
           actions={[
+            { label: 'Editar variante', icon: <Pencil className="w-4 h-4" />, onClick: () => modals.show('edit', v), hidden: !canEdit },
             { label: 'Ajustar stock', icon: <Boxes className="w-4 h-4" />, onClick: () => modals.show('stock', v), hidden: !canAdjustStock },
             { label: 'Editar precio', icon: <DollarSign className="w-4 h-4" />, onClick: () => modals.show('price', v), hidden: !canEdit },
             { label: 'Disponibilidad', icon: <Settings2 className="w-4 h-4" />, onClick: () => modals.show('availability', v), hidden: !canEdit },
