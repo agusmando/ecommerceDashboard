@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { ordersApi } from '../../api/resources';
 import { getErrorMessage } from '../../api/client';
 import { ORDER_TRANSITIONS, type Order, type OrderStatus } from '../../api/types';
-import { ORDER_ACTION, ORDER_STATUS } from '../../lib/domain';
+import { orderActionLabel, orderStatusInfo } from '../../lib/domain';
 import { formatOrderNumber } from '../../lib/utils';
 import { useConfirm } from '../ConfirmProvider';
 
@@ -19,11 +19,11 @@ export function useOrderStatusChange() {
   const confirm = useConfirm();
 
   const change = useCallback(
-    (order: Pick<Order, 'id' | 'status'>, to: OrderStatus) => {
+    (order: Pick<Order, 'id' | 'status' | 'shippingMethod'>, to: OrderStatus) => {
       const run = async () => {
         try {
           await update(order.id, { status: to });
-          toast.success(`Orden ${formatOrderNumber(order.id)}: ${ORDER_STATUS[to].label.toLowerCase()}`);
+          toast.success(`Orden ${formatOrderNumber(order.id)}: ${orderStatusInfo(to, order.shippingMethod).label.toLowerCase()}`);
         } catch (e) {
           toast.error('No se pudo cambiar el estado', { description: getErrorMessage(e) });
           throw e;
@@ -45,5 +45,5 @@ export function useOrderStatusChange() {
     [confirm, update],
   );
 
-  return { change, isLoading: state.isLoading, label: (to: OrderStatus) => ORDER_ACTION[to] };
+  return { change, isLoading: state.isLoading, label: (to: OrderStatus, method?: string | null) => orderActionLabel(to, method) };
 }

@@ -189,7 +189,7 @@ export default function Dashboard() {
                   <span className="text-muted-foreground">{formatRelative(o.createdAt)}</span>
                   <span className="min-w-0 max-w-full truncate text-muted-foreground">{o.user?.email ?? o.userSuperTokensId.slice(0, 8)}</span>
                   <span className="ml-auto font-medium tabular-nums">{formatCurrency(orderChargedTotal(o))}</span>
-                  <OrderStatusBadge status={o.status} />
+                  <OrderStatusBadge status={o.status} method={o.shippingMethod} />
                 </Link>
               </li>
             ))}

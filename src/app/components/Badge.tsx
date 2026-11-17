@@ -6,7 +6,7 @@ import {
   MOVEMENT_TYPE,
   OFFER_STATE,
   ORDER_ITEM_STATUS,
-  ORDER_STATUS,
+  orderStatusInfo,
   REVIEW_STATUS,
   SHIPMENT_STATUS,
   type BannerState,
@@ -65,8 +65,8 @@ export const ActiveBadge = ({ active }: { active: boolean }) => (
   </Badge>
 );
 
-export const OrderStatusBadge = ({ status }: { status: OrderStatus }) => {
-  const s = ORDER_STATUS[status] ?? { label: status, tone: 'default' as Tone };
+export const OrderStatusBadge = ({ status, method }: { status: OrderStatus; method?: string | null }) => {
+  const s = orderStatusInfo(status, method) ?? { label: status, tone: 'default' as Tone };
   return (
     <Badge tone={s.tone} dot>
       {s.label}

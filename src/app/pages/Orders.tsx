@@ -156,7 +156,7 @@ export default function Orders() {
         </div>
       ),
     },
-    { key: 'status', header: 'Estado', cell: (o) => <OrderStatusBadge status={o.status} /> },
+    { key: 'status', header: 'Estado', cell: (o) => <OrderStatusBadge status={o.status} method={o.shippingMethod} /> },
     {
       key: 'eta',
       header: 'Entrega est.',
@@ -172,7 +172,7 @@ export default function Orders() {
           actions={[
             { label: 'Ver detalle', onClick: () => navigate(`/dashboard/orders/${o.id}`) },
             ...nextStatuses(o.status).map((to, i) => ({
-              label: label(to),
+              label: label(to, o.shippingMethod),
               onClick: () => change(o, to),
               danger: to === 'CANCELLED',
               separator: i === 0,

@@ -19,6 +19,7 @@ import {
   CLOSED_ITEM_STATUSES,
   DISCOUNT_TYPE,
   ORDER_STATUS,
+  orderStatusInfo,
   PAYMENT_STATUS,
   SHIPPING_METHOD_SHORT,
   describeItemQty,
@@ -35,7 +36,7 @@ import { cld } from '../lib/cloudinary';
 
 const FLOW: OrderStatus[] = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
 
-function StatusStepper({ status }: { status: OrderStatus }) {
+function StatusStepper({ status, method }: { status: OrderStatus; method?: string | null }) {
   if (status === 'CANCELLED') {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
@@ -64,7 +65,7 @@ function StatusStepper({ status }: { status: OrderStatus }) {
                 {done ? <Check className="w-4 h-4" /> : i + 1}
               </span>
               <span className={cn('text-center text-[11px] leading-tight sm:text-xs sm:whitespace-nowrap', active || done ? 'text-foreground font-medium' : 'text-muted-foreground')}>
-                {ORDER_STATUS[s].label}
+                {orderStatusInfo(s, method).label}
               </span>
             </div>
             {i < FLOW.length - 1 && (
@@ -288,7 +289,7 @@ export default function OrderDetail() {
         title={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             Orden {formatOrderNumber(order.id)}
-            <OrderStatusBadge status={order.status} />
+            <OrderStatusBadge status={order.status} method={order.shippingMethod ?? order.shipment?.method} />
           </span>
         }
         description={`Creada el ${formatDateTime(order.createdAt)} · actualizada ${formatDateTime(order.updatedAt)}`}
@@ -301,13 +302,13 @@ export default function OrderDetail() {
             onClick={() => change(order, to)}
           >
             {ACTION_ICON[to]}
-            {label(to)}
+            {label(to, order.shippingMethod ?? order.shipment?.method)}
           </Button>
         ))}
       />
 
       <Card>
-        <StatusStepper status={order.status} />
+        <StatusStepper status={order.status} method={order.shippingMethod ?? order.shipment?.method} />
         {order.status === 'DELIVERED' && (
           <p className="mt-4 text-xs text-muted-foreground">
             Estado final: solo se admiten devoluciones de ítems.

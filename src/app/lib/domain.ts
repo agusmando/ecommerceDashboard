@@ -42,6 +42,24 @@ export const ORDER_ACTION: Record<OrderStatus, string> = {
   CANCELLED: 'Cancelar orden',
 };
 
+/** Retiro en el local: "despachada" = lista para retirar; "entregada" = retirada. */
+const PICKUP_ORDER_STATUS: Partial<typeof ORDER_STATUS> = {
+  SHIPPED: { label: 'Lista para retirar', tone: 'violet' },
+  DELIVERED: { label: 'Retirada', tone: 'success' },
+};
+const PICKUP_ORDER_ACTION: Partial<typeof ORDER_ACTION> = {
+  SHIPPED: 'Lista para retirar',
+  DELIVERED: 'Marcar retirada',
+};
+
+/** Etiqueta del estado de la orden según el método (sin método: genérica). */
+export const orderStatusInfo = (status: OrderStatus, method?: string | null) =>
+  (method === 'PICKUP' && PICKUP_ORDER_STATUS[status]) || ORDER_STATUS[status];
+
+/** Texto del botón para pasar a `to` según el método. */
+export const orderActionLabel = (to: OrderStatus, method?: string | null) =>
+  (method === 'PICKUP' && PICKUP_ORDER_ACTION[to]) || ORDER_ACTION[to];
+
 export const ORDER_ITEM_STATUS: Record<OrderItemStatus, { label: string; tone: Tone }> = {
   FULFILLED: { label: 'Asignado', tone: 'success' },
   AWAITING_STOCK: { label: 'Esperando stock', tone: 'warning' },
