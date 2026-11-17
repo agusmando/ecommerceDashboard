@@ -400,6 +400,8 @@ export const ORDER_ITEM_STATUSES = [
 export type OrderItemStatus = (typeof ORDER_ITEM_STATUSES)[number];
 
 export const PAYMENT_TYPES = ['DEBIT', 'CREDIT', 'CASH', 'TRANSFER', 'MERCADOPAGO'] as const;
+/** Medios para órdenes nuevas: las tarjetas se cobran por Mercado Pago (DEBIT/CREDIT solo en pedidos viejos). */
+export const NEW_ORDER_PAYMENT_TYPES = ['CASH', 'TRANSFER', 'MERCADOPAGO'] as const;
 export type PaymentType = (typeof PAYMENT_TYPES)[number];
 export type PaymentStatus = 'PENDING' | 'IN_PROCESS' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'REFUNDED' | 'CHARGED_BACK';
 

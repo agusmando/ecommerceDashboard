@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { AlertTriangle, Info, Plus, Trash2 } from 'lucide-react';
 import { ordersApi } from '../../api/resources';
-import { PAYMENT_TYPES, type Id, type PaymentType, type ProductVariant } from '../../api/types';
+import { NEW_ORDER_PAYMENT_TYPES, type Id, type PaymentType, type ProductVariant } from '../../api/types';
 import { useAction } from '../../hooks/useAction';
 import { applyOfferPrice, formatPack, formatQty, paymentLabel, priceUnit } from '../../lib/domain';
 import { OfferTag } from '../VariantPrice';
@@ -104,7 +104,7 @@ export function CreateOrderModal({ isOpen, onClose }: { isOpen: boolean; onClose
       <div className="space-y-5">
         <Field label="Medio de pago" className="sm:max-w-xs">
           <select className={inputClass} value={paymentType} onChange={(e) => setPaymentType(e.target.value as PaymentType)}>
-            {PAYMENT_TYPES.map((p) => (
+            {NEW_ORDER_PAYMENT_TYPES.map((p) => (
               <option key={p} value={p}>
                 {paymentLabel(p)}
               </option>
