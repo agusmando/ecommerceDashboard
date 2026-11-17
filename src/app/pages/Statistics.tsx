@@ -41,7 +41,7 @@ export default function Statistics() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Ventas de productos" value={formatCurrency(s.revenue)} icon={<DollarSign className="w-5 h-5" />} loading={loading} hint="Sin envío ni órdenes canceladas" />
+        <StatTile label="Ventas de productos" value={formatCurrency(s.revenue)} icon={<DollarSign className="w-5 h-5" />} loading={loading} hint={`Tienda ${formatCurrency(s.byChannel.web.revenue)} · Mostrador ${formatCurrency(s.byChannel.counter.revenue)}`} />
         <StatTile label="Órdenes" value={formatNumber(s.totalAmount)} icon={<ShoppingCart className="w-5 h-5" />} loading={loading} hint={`${formatNumber(s.validCount)} no canceladas`} />
         <StatTile label="Ticket promedio" value={formatCurrency(s.avgTicket)} icon={<Receipt className="w-5 h-5" />} loading={loading} hint="Solo productos" />
         <StatTile label="Descuentos otorgados" value={formatCurrency(s.discounts)} icon={<Percent className="w-5 h-5" />} loading={loading} hint="Suma de ofertas aplicadas" />

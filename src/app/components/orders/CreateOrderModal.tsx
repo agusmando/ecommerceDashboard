@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { AlertTriangle, Info, Plus, Trash2 } from 'lucide-react';
-import { ordersApi } from '../../api/resources';
+import { Link } from 'react-router';
+import { AlertTriangle, CheckCircle2, Info, Plus, Trash2 } from 'lucide-react';
+import { useCreateCounterSaleMutation } from '../../api/resources';
 import { NEW_ORDER_PAYMENT_TYPES, type Id, type PaymentType, type ProductVariant } from '../../api/types';
 import { useAction } from '../../hooks/useAction';
 import { applyOfferPrice, formatPack, formatQty, paymentLabel, priceUnit } from '../../lib/domain';
@@ -37,46 +37,49 @@ function estimate(line: Line) {
 }
 
 /**
- * Venta manual (mostrador): `POST /order`. El backend asigna la orden al
- * usuario logueado, recalcula precios y ofertas, y si falta stock ajusta o
- * cancela líneas (409 si no hay stock para ninguna).
+ * Venta de mostrador: `POST /order/counter`. En un paso queda entregada y
+ * cobrada, descuenta stock y suma a las estadísticas (canal "Mostrador").
+ * El backend recalcula precios y ofertas; si falta stock no registra nada.
+ * Después de registrar, el formulario queda listo para la siguiente venta.
  */
 export function CreateOrderModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const navigate = useNavigate();
-  const [create] = ordersApi.useCreate();
+  const [createCounterSale] = useCreateCounterSaleMutation();
+  const [last, setLast] = useState<{ id: Id; total: number } | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentType>('CASH');
   const [lines, setLines] = useState<Line[]>(() => [newLine()]);
 
   const patch = (key: number, p: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...p } : l)));
 
   const valid = lines.filter((l) => l.variantId && Number(l.quantity) > 0);
+  const short = lines.some((l) => l.variant && estimate(l).units > l.variant.currentStock);
   const total = useMemo(() => lines.reduce((acc, l) => acc + estimate(l).price, 0), [lines]);
 
   const [submit, busy] = useAction(
     () =>
-      create({
+      createCounterSale({
         paymentType,
         orderItems: valid.map((l) => ({
           productVariantId: l.variantId!,
           quantity: Math.round(Number(l.quantity)),
           ...(l.bulk ? { selectedBulkOption: l.bulk } : {}),
         })),
-      }),
-    { success: (o) => `Orden ${formatOrderNumber(o.id)} creada`, error: 'No se pudo crear la orden' },
+      }).unwrap(),
+    { success: (o) => `Venta ${formatOrderNumber(o.id)} registrada`, error: 'No se pudo registrar la venta' },
   );
 
   const close = () => {
     if (busy) return;
     setLines([newLine()]);
+    setLast(null);
     onClose();
   };
 
   const handleSubmit = async () => {
     const order = await submit().catch(() => null);
     if (order) {
+      // Lista para la siguiente venta (mismo medio de pago)
+      setLast({ id: order.id, total: Number(order.totalPrice) || 0 });
       setLines([newLine()]);
-      onClose();
-      navigate(`/dashboard/orders/${order.id}`);
     }
   };
 
@@ -84,8 +87,8 @@ export function CreateOrderModal({ isOpen, onClose }: { isOpen: boolean; onClose
     <Modal
       isOpen={isOpen}
       onClose={close}
-      title="Nueva venta"
-      description="Venta manual de mostrador. La orden queda a nombre de tu usuario y nace en Pendiente."
+      title="Venta de mostrador"
+      description="Se registra entregada y cobrada: descuenta stock y suma a las ventas."
       size="xl"
       footer={
         <>
@@ -93,15 +96,26 @@ export function CreateOrderModal({ isOpen, onClose }: { isOpen: boolean; onClose
             Total estimado <span className="ml-1 text-base font-semibold tabular-nums text-foreground">{formatCurrency(total)}</span>
           </div>
           <Button variant="ghost" onClick={close} disabled={busy}>
-            Cancelar
+            {last ? 'Cerrar' : 'Cancelar'}
           </Button>
-          <Button onClick={handleSubmit} loading={busy} disabled={!valid.length}>
-            Crear orden
+          <Button onClick={handleSubmit} loading={busy} disabled={!valid.length || short}>
+            Registrar venta
           </Button>
         </>
       }
     >
       <div className="space-y-5">
+        {last && (
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+              Venta {formatOrderNumber(last.id)} registrada por {formatCurrency(last.total)}. Podés cargar la siguiente.
+            </span>
+            <Link to={`/dashboard/orders/${last.id}`} onClick={close} className="shrink-0 font-medium underline underline-offset-2">
+              Ver
+            </Link>
+          </div>
+        )}
         <Field label="Medio de pago" className="sm:max-w-xs">
           <select className={inputClass} value={paymentType} onChange={(e) => setPaymentType(e.target.value as PaymentType)}>
             {NEW_ORDER_PAYMENT_TYPES.map((p) => (
@@ -199,7 +213,7 @@ export function CreateOrderModal({ isOpen, onClose }: { isOpen: boolean; onClose
                 {short && (
                   <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    Stock disponible {formatQty(v!.currentStock, v!.contentMeasure)}: la línea se ajustará o cancelará.
+                    Stock disponible {formatQty(v!.currentStock, v!.contentMeasure)}: no alcanza. Corregí el stock con un ajuste antes de registrar la venta.
                   </div>
                 )}
               </div>
@@ -215,8 +229,8 @@ export function CreateOrderModal({ isOpen, onClose }: { isOpen: boolean; onClose
         <div className="flex gap-2 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
           <Info className="w-4 h-4 shrink-0" />
           <p>
-            Los precios y ofertas se recalculan en el servidor. Si no alcanza el stock, la línea queda como{' '}
-            <em>Parcial</em> o <em>Cancelada</em>; si no hay stock para ningún producto la orden no se crea.
+            Los precios y ofertas se recalculan en el servidor. Se pueden vender productos que no estén publicados en la tienda.
+            Con Mercado Pago (QR o link) registrala una vez que el cobro esté acreditado.
           </p>
         </div>
       </div>

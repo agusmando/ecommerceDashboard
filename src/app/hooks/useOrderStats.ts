@@ -57,7 +57,13 @@ export function computeStats(orders: Order[], sinceDay: string) {
   let paidDeliveries = 0;
   const byZoneMap = new Map<string, { zone: string; revenue: number; count: number }>();
   const byProvider = new Map<string, { count: number; revenue: number }>();
+  const byChannel = { web: { count: 0, revenue: 0 }, counter: { count: 0, revenue: 0 } };
   valid.forEach((o) => {
+    const ch = o.channel === 'COUNTER' ? byChannel.counter : byChannel.web;
+    ch.count += 1;
+    ch.revenue += Number(o.totalPrice) || 0;
+    // Las ventas de mostrador no son retiros ni envíos
+    if (o.channel === 'COUNTER') return;
     const cost = orderShippingCost(o);
     shippingRevenue += cost;
     if ((o.shippingMethod ?? o.shipment?.method) !== 'DELIVERY') {
@@ -130,6 +136,8 @@ export function computeStats(orders: Order[], sinceDay: string) {
     /** Lo cobrado a clientes: productos + envío. */
     chargedRevenue: revenue + shippingRevenue,
     shipping,
+    /** Tienda online vs. mostrador (solo productos, sin canceladas). */
+    byChannel,
     validCount: valid.length,
     avgTicket: valid.length ? revenue / valid.length : 0,
     discounts,

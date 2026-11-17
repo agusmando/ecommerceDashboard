@@ -451,6 +451,8 @@ export interface Order {
   /** Departamento de entrega. */
   shippingZone?: string | null;
   paymentType: PaymentType | string;
+  /** WEB = tienda online; COUNTER = venta de mostrador cargada desde el panel. */
+  channel?: 'WEB' | 'COUNTER';
   /** Estado del cobro online (Mercado Pago). En otros medios queda PENDING y se gestiona a mano. */
   paymentStatus?: PaymentStatus;
   paymentStatusDetail?: string | null;

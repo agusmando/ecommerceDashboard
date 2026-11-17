@@ -268,6 +268,12 @@ const extended = api.injectEndpoints({
       invalidatesTags: (_r, e) => (e ? [] : ['Movement', 'Variant', 'Product']),
     }),
 
+    /** Venta de mostrador: queda entregada y cobrada en un paso (descuenta stock). */
+    createCounterSale: build.mutation<Order, import('./types').CreateOrderInput>({
+      query: (data) => ({ url: '/order/counter', method: 'POST', data }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Order', 'Movement', 'Variant', 'Product']),
+    }),
+
     /** Pide un repartidor de Uber Direct para el envío. Devuelve el envío actualizado. */
     dispatchShipment: build.mutation<Shipment, Id>({
       query: (id) => ({ url: `/shipping/shipment/${id}/dispatch`, method: 'POST' }),
@@ -409,6 +415,7 @@ const extended = api.injectEndpoints({
 });
 
 export const {
+  useCreateCounterSaleMutation,
   useCreateProductMutation,
   useCreateMovementsBulkMutation,
   useAdjustVariantStockMutation,

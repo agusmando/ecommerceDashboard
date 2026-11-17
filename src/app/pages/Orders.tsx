@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowRight, Hash, Plus, ShoppingCart, Store, Truck } from 'lucide-react';
+import { ArrowRight, Hash, Plus, ShoppingBag, ShoppingCart, Store, Truck } from 'lucide-react';
 import { ordersApi } from '../api/resources';
 import { ORDER_STATUSES, PAYMENT_TYPES, SHIPMENT_METHODS, type Order, type OrderStatus, type ShippingMethod } from '../api/types';
 import { PageHeader } from '../components/PageHeader';
@@ -123,7 +123,12 @@ export default function Orders() {
       header: 'Entrega',
       hideOnMobile: true,
       cell: (o) =>
-        o.shippingMethod ? (
+        o.channel === 'COUNTER' ? (
+          <div className="flex items-start gap-1.5">
+            <ShoppingBag className="mt-0.5 w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            <div className="whitespace-nowrap">Mostrador</div>
+          </div>
+        ) : o.shippingMethod ? (
           <div className="flex items-start gap-1.5">
             {o.shippingMethod === 'DELIVERY' ? (
               <Truck className="mt-0.5 w-3.5 h-3.5 shrink-0 text-muted-foreground" />
@@ -187,11 +192,11 @@ export default function Orders() {
     <>
       <PageHeader
         title="Órdenes"
-        description="Seguimiento de ventas: confirmá, despachá y entregá pedidos."
+        description="Seguimiento de ventas: confirmá, despachá y entregá pedidos. Las ventas del local se cargan con Venta de mostrador."
         actions={
           <Button onClick={() => setCreating(true)}>
             <Plus className="w-4 h-4" />
-            Nueva venta
+            Venta de mostrador
           </Button>
         }
       />

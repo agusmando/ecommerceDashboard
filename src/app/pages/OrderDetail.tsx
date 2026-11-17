@@ -290,6 +290,7 @@ export default function OrderDetail() {
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             Orden {formatOrderNumber(order.id)}
             <OrderStatusBadge status={order.status} method={order.shippingMethod ?? order.shipment?.method} />
+            {order.channel === 'COUNTER' && <Badge tone="default">Venta de mostrador</Badge>}
           </span>
         }
         description={`Creada el ${formatDateTime(order.createdAt)} · actualizada ${formatDateTime(order.updatedAt)}`}
