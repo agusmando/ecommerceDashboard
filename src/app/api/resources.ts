@@ -322,6 +322,17 @@ const extended = api.injectEndpoints({
       invalidatesTags: (_r, e) => (e ? [] : ['Order']),
     }),
 
+    /** Cobrado / devuelto / sugerido, consultado en vivo a Mercado Pago (sin cache). */
+    refundInfo: build.query<import('./types').RefundInfo, Id>({
+      query: (orderId) => ({ url: `/payment/order/${orderId}/refund` }),
+      keepUnusedDataFor: 0,
+    }),
+    /** Reintegro por Mercado Pago: sin `amount` es total. Devuelve la orden actualizada. */
+    refundOrderPayment: build.mutation<import('./types').Order, { orderId: Id; amount?: number; reason?: string }>({
+      query: ({ orderId, ...body }) => ({ url: `/payment/order/${orderId}/refund`, method: 'POST', data: body }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Order']),
+    }),
+
     // ------------------------------------------------------------ Reseñas de Google
 
     googleReviews: build.query<GoogleReviewsResponse, void>({
@@ -449,6 +460,8 @@ export const {
   useGoogleReviewsQuery,
   useSyncGoogleReviewsMutation,
   useSyncOrderPaymentMutation,
+  useRefundInfoQuery,
+  useRefundOrderPaymentMutation,
   useUpdateGoogleReviewMutation,
   useBannerPlacementsQuery,
   useCreateBannerMutation,

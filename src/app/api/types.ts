@@ -459,11 +459,39 @@ export interface Order {
   paymentStatusDetail?: string | null;
   paymentId?: string | null;
   paidAt?: ISODate | null;
+  /** Lo que cobró Mercado Pago y lo ya reintegrado (dato de Mercado Pago). */
+  paidAmount?: number | null;
+  refundedAmount?: number;
+  refunds?: OrderRefund[];
   estimatedReadyAt: ISODate | null;
   status: OrderStatus;
   orderItems?: OrderItem[];
   /** Solo en `GET /order/:id` y `/order/mine` (null si la orden no tiene envío). */
   shipment?: Shipment | null;
+}
+
+export interface OrderRefund {
+  id: Id;
+  amount: number;
+  status: string;
+  reason?: string | null;
+  createdAt: ISODate;
+}
+
+/** `GET /payment/order/:id/refund`: estado del pago consultado en vivo a Mercado Pago. */
+export interface RefundInfo {
+  paymentId: string;
+  /** Estado en Mercado Pago (approved, refunded, ...). */
+  paymentStatus: string;
+  paid: number;
+  refunded: number;
+  /** Lo que todavía se puede devolver. */
+  refundable: number;
+  /** Total actual del pedido (productos + envío). */
+  currentTotal: number;
+  /** Lo cobrado de más respecto del total actual (o todo si el pedido está cancelado). */
+  suggested: number;
+  refunds: OrderRefund[];
 }
 
 export interface OrderFilters extends ListParams {

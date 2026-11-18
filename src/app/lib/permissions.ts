@@ -15,7 +15,8 @@ export type Permission =
   | 'content.edit'
   | 'catalog.delete'
   | 'shipping.config'
-  | 'users.manage';
+  | 'users.manage'
+  | 'payments.refund';
 
 export type StaffRole = 'ADMIN' | 'EDITOR' | 'EMPLOYEE';
 
@@ -30,7 +31,7 @@ export const hasPermission = (user: User | null | undefined, permission: Permiss
   if (!user) return false;
   if (user.permissions) return user.permissions.includes(permission);
   // Backend anterior al RBAC: solo había ADMIN / EMPLOYEE.
-  return (user.roles ?? []).includes('ADMIN') || (permission !== 'users.manage' && (user.roles ?? []).includes('EMPLOYEE'));
+  return (user.roles ?? []).includes('ADMIN') || (permission !== 'users.manage' && permission !== 'payments.refund' && (user.roles ?? []).includes('EMPLOYEE'));
 };
 
 /** Textos cortos para la UI (la definición completa está en el backend). */
@@ -45,6 +46,7 @@ export const PERMISSION_LABEL: Record<Permission, string> = {
   'catalog.delete': 'Dar de baja productos',
   'shipping.config': 'Tarifas de envío',
   'users.manage': 'Usuarios y roles',
+  'payments.refund': 'Devolver dinero por Mercado Pago',
 };
 
 export const ROLE_TONE = {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { Check, Clock, CreditCard, MapPin, PackageCheck, PackageX, RotateCcw, Store, Truck, User, XCircle } from 'lucide-react';
+import { Check, Clock, CreditCard, HandCoins, MapPin, PackageCheck, PackageX, RotateCcw, Store, Truck, User, XCircle } from 'lucide-react';
 import { ordersApi, useSyncOrderPaymentMutation } from '../api/resources';
 import type { Order, OrderItem, OrderStatus } from '../api/types';
 import { PageHeader } from '../components/PageHeader';
@@ -31,6 +31,8 @@ import {
   shippingProviderLabel,
 } from '../lib/domain';
 import { cn, formatCurrency, formatDate, formatDateTime, formatOrderNumber } from '../lib/utils';
+import { RefundModal } from '../components/orders/RefundModal';
+import { useCan } from '../hooks/useCan';
 import type { DiscountType } from '../api/types';
 import { cld } from '../lib/cloudinary';
 
@@ -422,13 +424,27 @@ function OrderTotals({ order, subtotal, discounts }: { order: Order; subtotal: n
   );
 }
 
-/** Estado del cobro en Mercado Pago + botón para re-consultarlo (por si el webhook no llegó). */
+/**
+ * Estado del cobro en Mercado Pago + botón para re-consultarlo (por si el webhook
+ * no llegó) y, para administradores, devolver dinero (total o parcial).
+ */
 function MercadoPagoStatus({ order }: { order: Order }) {
   const [sync, { isLoading }] = useSyncOrderPaymentMutation();
   const [run, busy] = useAction(() => sync(order.id).unwrap(), {
     success: (o) => `Pago: ${PAYMENT_STATUS[o.paymentStatus ?? 'PENDING'].label}`,
   });
+  const can = useCan();
+  const [refunding, setRefunding] = useState(false);
   const status = order.paymentStatus ?? 'PENDING';
+  const refunded = Number(order.refundedAmount) || 0;
+  const paid = order.paidAmount != null ? Number(order.paidAmount) : null;
+  // Cobrado de más: productos devueltos/cancelados después de pagar, o pedido cancelado
+  const owed =
+    paid == null || status !== 'APPROVED'
+      ? 0
+      : Math.round((paid - refunded - (order.status === 'CANCELLED' ? 0 : orderChargedTotal(order))) * 100) / 100;
+  const canRefund = can('payments.refund') && status === 'APPROVED' && !!order.paymentId;
+
   return (
     <div className="mt-1.5 space-y-1.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -438,15 +454,44 @@ function MercadoPagoStatus({ order }: { order: Order }) {
         <Button size="sm" variant="outline" onClick={() => run()} disabled={busy || isLoading}>
           <RotateCcw className="w-3.5 h-3.5" /> Consultar en Mercado Pago
         </Button>
+        {canRefund && (
+          <Button size="sm" variant="outline" onClick={() => setRefunding(true)}>
+            <HandCoins className="w-3.5 h-3.5" /> Devolver dinero
+          </Button>
+        )}
       </div>
       {order.paidAt && <div className="text-xs text-muted-foreground">Acreditado el {formatDateTime(order.paidAt)}</div>}
       {order.paymentId && <div className="font-mono text-xs text-muted-foreground">Pago #{order.paymentId}</div>}
+      {paid != null && <div className="text-xs text-muted-foreground">Cobrado {formatCurrency(paid)}</div>}
+      {refunded > 0 && (
+        <div className="text-xs">
+          <span className="font-medium">Devuelto {formatCurrency(refunded)}</span>
+          {!!order.refunds?.length && (
+            <ul className="mt-1 space-y-0.5 text-muted-foreground">
+              {order.refunds.map((r) => (
+                <li key={r.id}>
+                  {formatDateTime(r.createdAt)} · {formatCurrency(r.amount)}
+                  {r.reason && <> · {r.reason}</>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {owed > 1 && order.paymentStatusDetail !== 'paid_after_cancel' && (
+        <div className="text-xs font-medium text-amber-700 dark:text-amber-300">
+          Hay {formatCurrency(owed)} cobrados de más{canRefund ? ': podés devolverlos con «Devolver dinero».' : '. Pedile a un administrador que los devuelva.'}
+        </div>
+      )}
       {order.paymentStatusDetail === 'paid_after_cancel' && (
-        <div className="text-xs font-medium text-red-600">Se pagó después de cancelar: hay que reintegrar el pago desde Mercado Pago.</div>
+        <div className="text-xs font-medium text-red-600">
+          Se pagó después de cancelar: hay que devolver el pago{canRefund ? ' con «Devolver dinero».' : ' (lo hace un administrador).'}
+        </div>
       )}
       {order.paymentStatusDetail === 'amount_mismatch' && (
         <div className="text-xs font-medium text-red-600">El importe pagado no coincide con el total: revisalo en Mercado Pago.</div>
       )}
+      {canRefund && <RefundModal order={order} open={refunding} onClose={() => setRefunding(false)} />}
     </div>
   );
 }
