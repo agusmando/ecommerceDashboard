@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { ImagePlus, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ImagePlus, Loader2, X } from 'lucide-react';
+import { compressImages } from '../../lib/compressImage';
 
-/** Selector de imágenes con miniaturas. */
+/** Selector de imágenes con miniaturas. Las achica antes de guardarlas (ver compressImage). */
 export function ImageInput({
   files,
   onChange,
@@ -12,6 +13,7 @@ export function ImageInput({
   max?: number;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const [processing, setProcessing] = useState(false);
   const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
 
@@ -30,15 +32,25 @@ export function ImageInput({
           </button>
         </div>
       ))}
-      {files.length < max && (
-        <button
-          type="button"
-          onClick={() => ref.current?.click()}
-          className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary"
+      {processing ? (
+        <div
+          role="status"
+          className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-xs text-muted-foreground"
         >
-          <ImagePlus className="w-5 h-5" />
-          Agregar
-        </button>
+          <Loader2 className="w-5 h-5 animate-spin" />
+          Optimizando
+        </div>
+      ) : (
+        files.length < max && (
+          <button
+            type="button"
+            onClick={() => ref.current?.click()}
+            className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary"
+          >
+            <ImagePlus className="w-5 h-5" />
+            Agregar
+          </button>
+        )
       )}
       <input
         ref={ref}
@@ -46,10 +58,16 @@ export function ImageInput({
         accept="image/*"
         multiple
         hidden
-        onChange={(e) => {
-          const picked = Array.from(e.target.files ?? []);
-          onChange([...files, ...picked].slice(0, max));
+        onChange={async (e) => {
+          const picked = Array.from(e.target.files ?? []).slice(0, max - files.length);
           e.target.value = '';
+          if (!picked.length) return;
+          setProcessing(true);
+          try {
+            onChange([...files, ...(await compressImages(picked))]);
+          } finally {
+            setProcessing(false);
+          }
         }}
       />
     </div>

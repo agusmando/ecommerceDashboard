@@ -5,6 +5,7 @@ import { cn } from '../../lib/utils';
 import { Button } from '../Button';
 import { dimensionWarnings, formatDims } from './bannerSpecs';
 import { cld } from '../../lib/cloudinary';
+import { compressImage } from '../../lib/compressImage';
 
 export interface ImageSlot {
   file: File | null;
@@ -128,10 +129,11 @@ export function BannerImageField({ label, hint, required, recommended, existingU
         type="file"
         accept="image/*"
         hidden
-        onChange={(e) => {
+        onChange={async (e) => {
           const f = e.target.files?.[0];
-          if (f) onChange({ file: f, removed: slot.removed });
           e.target.value = '';
+          // Las medidas recomendadas llegan a 1920 px: 2560 deja margen para pantallas densas
+          if (f) onChange({ file: await compressImage(f, { maxSide: 2560 }), removed: slot.removed });
         }}
       />
     </div>
