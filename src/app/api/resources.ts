@@ -402,6 +402,16 @@ const extended = api.injectEndpoints({
       invalidatesTags: (_r, e) => (e ? [] : ['User']),
     }),
 
+    /** Pasa marcas de un proveedor a otro en una sola operación. */
+    transferSupplierBrands: build.mutation<Supplier, { id: Id; brandIds: Id[]; toSupplierId: Id }>({
+      query: ({ id, brandIds, toSupplierId }) => ({
+        url: `/supplier/${id}/brands/transfer`,
+        method: 'POST',
+        data: { brandsId: brandIds.map((b) => ({ id: b })), toSupplierId },
+      }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Supplier', 'Brand']),
+    }),
+
     health: build.query<{ status: string; latencyMs: number }, void>({
       queryFn: async (_arg, _api, _extra, baseQuery) => {
         const t0 = performance.now();
@@ -415,6 +425,7 @@ const extended = api.injectEndpoints({
 });
 
 export const {
+  useTransferSupplierBrandsMutation,
   useCreateCounterSaleMutation,
   useCreateProductMutation,
   useCreateMovementsBulkMutation,

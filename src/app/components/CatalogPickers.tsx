@@ -40,9 +40,23 @@ export function CategorySelect(p: SingleProps) {
   const { options, loading } = useCategoryOptions();
   return <Combobox {...p} options={options} loading={loading} placeholder={p.placeholder ?? 'Elegí una categoría'} onChange={(v) => p.onChange(v as Id | null)} />;
 }
-export function BrandSelect(p: SingleProps) {
+export function BrandSelect(p: SingleProps & { exclude?: Id[] }) {
   const { options, loading } = useBrandOptions();
-  return <Combobox {...p} options={options} loading={loading} placeholder={p.placeholder ?? 'Elegí una marca'} onChange={(v) => p.onChange(v as Id | null)} />;
+  return <Combobox {...p} options={options.filter((o) => !p.exclude?.includes(o.value as Id))} loading={loading} placeholder={p.placeholder ?? 'Elegí una marca'} onChange={(v) => p.onChange(v as Id | null)} />;
+}
+
+/** Proveedor único; `exclude` saca opciones (p. ej. el proveedor actual). */
+export function SupplierSelect(p: SingleProps & { exclude?: Id[] }) {
+  const { options, loading } = useSupplierOptions();
+  return (
+    <Combobox
+      {...p}
+      options={options.filter((o) => !p.exclude?.includes(o.value as Id))}
+      loading={loading}
+      placeholder={p.placeholder ?? 'Elegí un proveedor'}
+      onChange={(v) => p.onChange(v as Id | null)}
+    />
+  );
 }
 
 type MultiProps = { value: Id[]; onChange: (ids: Id[]) => void; placeholder?: string; disabled?: boolean; exclude?: Id[] };

@@ -1,14 +1,15 @@
 import { Building2 } from 'lucide-react';
-import { suppliersApi } from '../api/resources';
+import { suppliersApi, useTransferSupplierBrandsMutation } from '../api/resources';
 import type { Id, Supplier } from '../api/types';
 import { MasterPage, type MasterApi, type MasterConfig } from '../components/masters/MasterPage';
 import { RelationEditor } from '../components/masters/RelationEditor';
-import { BrandMultiSelect } from '../components/CatalogPickers';
+import { BrandMultiSelect, SupplierSelect } from '../components/CatalogPickers';
 import { Field } from '../components/Form';
 import { formatDate } from '../lib/utils';
 
 function SupplierDetail({ supplier }: { supplier: Supplier }) {
   const [setBrands] = suppliersApi.useBrands();
+  const [transfer] = useTransferSupplierBrandsMutation();
   return (
     <>
       <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -37,6 +38,9 @@ function SupplierDetail({ supplier }: { supplier: Supplier }) {
         emptyText="Sin marcas asociadas"
         onChange={(ids, attach) => setBrands(supplier.id, ids, attach)}
         renderPicker={(p) => <BrandMultiSelect {...p} placeholder="Elegí marcas para asociar" />}
+        moveLabel="Pasar a otro proveedor"
+        onMove={(ids, to) => transfer({ id: supplier.id, brandIds: ids, toSupplierId: to }).unwrap()}
+        renderMoveTarget={(p) => <SupplierSelect {...p} exclude={[supplier.id]} placeholder="Pasar a proveedor…" />}
       />
     </>
   );

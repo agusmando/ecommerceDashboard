@@ -3,7 +3,7 @@ import { brandsApi } from '../api/resources';
 import type { Brand } from '../api/types';
 import { MasterPage, type MasterApi, type MasterConfig } from '../components/masters/MasterPage';
 import { RelationEditor } from '../components/masters/RelationEditor';
-import { ProductMultiSelect } from '../components/CatalogPickers';
+import { BrandSelect, ProductMultiSelect } from '../components/CatalogPickers';
 import { formatDate } from '../lib/utils';
 import { useCan } from '../hooks/useCan';
 
@@ -31,6 +31,11 @@ function BrandDetail({ brand }: { brand: Brand }) {
         emptyText="La marca no tiene productos"
         onChange={(ids, attach) => setProducts(brand.id, ids, attach)}
         renderPicker={(p) => <ProductMultiSelect {...p} placeholder="Buscar productos para asociar" />}
+        // Todo producto tiene marca: no se "quita", se pasa a otra (asociarlo a la otra lo mueve).
+        removable={false}
+        moveLabel="Pasar a otra marca"
+        onMove={(ids, to) => setProducts(to, ids, true)}
+        renderMoveTarget={(p) => <BrandSelect {...p} exclude={[brand.id]} placeholder="Pasar a marca…" />}
       />
       <RelationEditor
         title="Proveedores"
@@ -39,7 +44,9 @@ function BrandDetail({ brand }: { brand: Brand }) {
         emptyText="Ningún proveedor distribuye esta marca"
       />
       <p className="text-xs text-muted-foreground">
-        {!canAssociate && 'Solo un administrador puede asociar o desasociar productos. '}
+        {canAssociate
+          ? 'Un producto siempre tiene una marca: para sacarlo de esta, pasalo a otra con el botón de flechas. '
+          : 'Solo un administrador puede asociar o pasar productos a otra marca. '}
         Los proveedores se asignan desde Proveedores.
       </p>
     </>
