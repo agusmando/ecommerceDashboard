@@ -64,6 +64,7 @@ export const ORDER_ITEM_STATUS: Record<OrderItemStatus, { label: string; tone: T
   FULFILLED: { label: 'Asignado', tone: 'success' },
   AWAITING_STOCK: { label: 'Esperando stock', tone: 'warning' },
   PARTIALLY_RETURNED: { label: 'Parcial', tone: 'info' },
+  OUT_OF_STOCK: { label: 'Sin stock', tone: 'danger' },
   CANCELLED: { label: 'Cancelado', tone: 'danger' },
   RETURNED: { label: 'Devuelto', tone: 'default' },
 };
@@ -193,7 +194,7 @@ export function itemTotal(it: OrderItem) {
   return Math.max(0, it.unitPriceSnapshot * priceUnits - (it.discountAppliedSnapshot || 0));
 }
 
-export const CLOSED_ITEM_STATUSES: OrderItemStatus[] = ['CANCELLED', 'RETURNED'];
+export const CLOSED_ITEM_STATUSES: OrderItemStatus[] = ['CANCELLED', 'RETURNED', 'OUT_OF_STOCK'];
 
 // ---------------------------------------------------------------- Ofertas
 

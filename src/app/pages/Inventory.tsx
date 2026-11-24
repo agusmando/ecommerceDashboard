@@ -30,8 +30,6 @@ const DEFAULTS = {
   lowOnly: false,
 };
 
-const isLow = (v: ProductVariant) => v.currentStock <= 0 || (v.stockThreshold > 0 && v.currentStock <= v.stockThreshold);
-
 function StockBar({ v }: { v: ProductVariant }) {
   const l = stockLevel(v);
   // La barra compara contra 2× el umbral (o el propio stock si no hay umbral).
@@ -72,22 +70,22 @@ export default function Inventory() {
     maxStock: numOrEmpty(debounced.maxStock),
     availableWeb: debounced.availableWeb === '' ? '' : debounced.availableWeb === 'true',
     active: debounced.active === '' ? '' : debounced.active === 'true',
+    lowStock: values.lowOnly ? true : '',
     detalle: true,
     currentPage: debounced.page,
     amountPerPage: debounced.pageSize,
   });
 
-  const pageRows = query.data?.content;
-  const rows = useMemo(() => (values.lowOnly ? pageRows?.filter(isLow) : pageRows), [pageRows, values.lowOnly]);
+  const rows = query.data?.content;
 
   const stats = useMemo(() => {
-    const list = pageRows ?? [];
+    const list = rows ?? [];
     return {
       total: query.data?.pagination.totalAmount ?? 0,
       out: list.filter((v) => v.currentStock <= 0).length,
       low: list.filter((v) => v.currentStock > 0 && v.stockThreshold > 0 && v.currentStock <= v.stockThreshold).length,
     };
-  }, [pageRows, query.data]);
+  }, [rows, query.data]);
 
   const columns: Column<ProductVariant>[] = [
     {
@@ -211,7 +209,7 @@ export default function Inventory() {
       </FilterBar>
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
         <Switch checked={values.lowOnly} onCheckedChange={(lowOnly) => f.set({ lowOnly })} />
-        Solo stock bajo o sin stock <span className="text-xs">(filtra la página actual)</span>
+        Solo stock bajo o sin stock
       </label>
     </div>
   );
@@ -256,7 +254,7 @@ export default function Inventory() {
         rowClassName={(v) => (v.active ? undefined : 'opacity-60')}
         empty={{
           icon: <Boxes className="w-6 h-6" />,
-          title: values.lowOnly ? 'No hay variantes con stock bajo en esta página' : 'No hay variantes',
+          title: values.lowOnly ? 'No hay variantes con stock bajo o sin stock' : 'No hay variantes',
           description: f.activeCount ? 'Probá con otros filtros.' : undefined,
         }}
         pagination={{

@@ -24,7 +24,7 @@ const FALLBACK: Record<BannerPlacement, BannerPlacementSpec> = {
   HOME_RECOMMENDATION: {
     key: 'HOME_RECOMMENDATION',
     label: BANNER_PLACEMENT_LABEL.HOME_RECOMMENDATION,
-    description: 'Tarjetas de recomendaciones de la portada (cuadradas o anchas).',
+    description: 'Las 4 tarjetas de "Nuestras recomendaciones" de la portada: título, subtítulo, imagen y link. Las posiciones sin tarjeta muestran la imagen por defecto.',
     desktop: null,
     mobile: null,
     sizes: { SQUARE: { width: 600, height: 600 }, WIDE: { width: 1200, height: 420 } },
@@ -77,7 +77,7 @@ export const PLACEMENT_FIELDS: Record<
   { copy: ('eyebrow' | 'headline' | 'text' | 'ctaLabel')[]; colors: boolean; desktop: boolean; mobile: boolean; size: boolean }
 > = {
   HOME_HERO: { copy: ['eyebrow', 'headline', 'text', 'ctaLabel'], colors: true, desktop: true, mobile: true, size: false },
-  HOME_RECOMMENDATION: { copy: [], colors: false, desktop: true, mobile: false, size: true },
+  HOME_RECOMMENDATION: { copy: ['headline', 'text'], colors: false, desktop: true, mobile: false, size: true },
   CATALOG_STRIP: { copy: [], colors: false, desktop: true, mobile: true, size: false },
   ANNOUNCEMENT_BAR: { copy: ['text'], colors: true, desktop: false, mobile: false, size: false },
 };

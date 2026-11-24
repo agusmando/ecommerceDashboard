@@ -37,6 +37,38 @@ import { cld } from '../lib/cloudinary';
 
 const sortBanners = (a: Banner, b: Banner) => a.position - b.position || a.id - b.id;
 
+/** Las recomendaciones de la portada son exactamente 4 tarjetas. */
+const RECS_TOTAL = 4;
+
+/** Campos obligatorios de una tarjeta de recomendación (los valida también el backend). */
+const recMissing = (b: Banner) => {
+  const m: string[] = [];
+  if (!b.headline) m.push('título');
+  if (!b.text) m.push('subtítulo');
+  if (!b.desktopImageUrl) m.push('imagen');
+  if (!b.linkUrl) m.push('link');
+  if (!b.size) m.push('tamaño');
+  return m;
+};
+
+/** Slot vacío de la grilla de recomendaciones. */
+function RecEmptySlot({ n, onAdd }: { n: number; onAdd: () => void }) {
+  return (
+    <Card className="flex min-h-[210px] flex-col items-center justify-center gap-3 border-dashed p-4 text-center">
+      <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <ImageIcon className="w-5 h-5" />
+      </span>
+      <div>
+        <div className="font-medium">Tarjeta {n}</div>
+        <p className="text-xs text-muted-foreground">Sin cargar</p>
+      </div>
+      <Button size="sm" variant="outline" onClick={onAdd}>
+        <Plus className="w-4 h-4" /> Completar
+      </Button>
+    </Card>
+  );
+}
+
 function Thumb({ url, icon, label, className }: { url: string | null; icon: React.ReactNode; label: string; className?: string }) {
   return (
     <figure className={cn('relative overflow-hidden rounded-md border border-border bg-muted', className)}>
@@ -77,6 +109,8 @@ function BannerCard({
   const fields = PLACEMENT_FIELDS[b.placement];
   const state = bannerState(b);
   const isAnnouncement = b.placement === 'ANNOUNCEMENT_BAR';
+  const isRec = b.placement === 'HOME_RECOMMENDATION';
+  const missing = isRec ? recMissing(b) : [];
 
   return (
     <Card className={cn('flex flex-col gap-4 p-4 sm:p-4', !b.active && 'opacity-70')}>
@@ -127,6 +161,12 @@ function BannerCard({
           {b.active ? <BannerStateBadge state={state} /> : <ActiveBadge active={false} />}
           {b.size && <Badge tone="violet">{BANNER_SIZE_LABEL[b.size]}</Badge>}
         </div>
+        {missing.length > 0 && (
+          <p className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="w-3 h-3 shrink-0" />
+            Falta: {missing.join(', ')}
+          </p>
+        )}
         {(b.eyebrow || b.headline) && (
           <p className="text-sm">
             {b.eyebrow && <span className="mr-1 text-xs uppercase tracking-wide text-muted-foreground">{b.eyebrow}</span>}
@@ -153,7 +193,7 @@ function BannerCard({
 
       <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
         <span className="text-xs tabular-nums text-muted-foreground">
-          Posición {index + 1} de {count}
+          {isRec ? 'Tarjeta' : 'Posición'} {index + 1} de {count}
         </span>
         <div className="flex gap-1">
           <Button
@@ -210,7 +250,9 @@ export default function Banners() {
 
   const list = grouped[placement] ?? [];
   const spec = specs[placement];
+  const isRecs = placement === 'HOME_RECOMMENDATION';
   const liveCount = list.filter((b) => bannerState(b) === 'live').length;
+  const recsComplete = isRecs ? list.filter((b) => recMissing(b).length === 0).length : 0;
 
   const openCreate = () => {
     setEditing(null);
@@ -286,8 +328,25 @@ export default function Banners() {
             {spec.imageRequired ? ' Imagen obligatoria.' : ''}
             {spec.maxActive ? ` Se muestra${spec.maxActive === 1 ? ' solo el primero vigente' : `n hasta ${spec.maxActive}`}.` : ''}
           </p>
+          {isRecs && (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {recsComplete} de {RECS_TOTAL} tarjetas completas
+              </span>
+              {list.length < RECS_TOTAL ? ` · faltan ${RECS_TOTAL - list.length} por cargar` : ''}. Cada tarjeta necesita título,
+              subtítulo, imagen y link; las posiciones vacías muestran la imagen por defecto y el orden define su lugar en la
+              portada.
+            </p>
+          )}
         </div>
-        <Button variant="outline" size="sm" onClick={openCreate} className="shrink-0">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={openCreate}
+          disabled={isRecs && list.length >= RECS_TOTAL}
+          title={isRecs && list.length >= RECS_TOTAL ? 'Ya hay 4 tarjetas: editá o eliminá una para crear otra' : undefined}
+          className="shrink-0"
+        >
           <Plus className="w-4 h-4" /> Agregar en {spec.label.toLowerCase()}
         </Button>
       </Card>
@@ -310,6 +369,34 @@ export default function Banners() {
         <Card>
           <ErrorState error={q.error} onRetry={q.refetch} />
         </Card>
+      ) : isRecs ? (
+        <>
+          {list.length > RECS_TOTAL && (
+            <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
+              Hay {list.length} tarjetas y la portada muestra solo las {RECS_TOTAL} primeras. Eliminá o desactivá las que sobran.
+            </div>
+          )}
+          <div className={cn('grid gap-4 sm:grid-cols-2 xl:grid-cols-4 transition-opacity', (q.isFetching || reordering) && 'opacity-60')}>
+            {Array.from({ length: Math.max(RECS_TOTAL, list.length) }, (_, i) => {
+              const b = list[i];
+              if (!b) return <RecEmptySlot key={`empty-${i}`} n={i + 1} onAdd={openCreate} />;
+              return (
+                <BannerCard
+                  key={b.id}
+                  banner={b}
+                  index={i}
+                  count={Math.max(RECS_TOTAL, list.length)}
+                  moving={reordering || q.isFetching}
+                  onEdit={() => openEdit(b)}
+                  onToggle={() => toggle(b.id, b.name, b.active)}
+                  onDelete={() => askDelete(b)}
+                  onMove={(dir) => move(i, dir)}
+                />
+              );
+            })}
+          </div>
+        </>
       ) : list.length === 0 ? (
         <Card>
           <EmptyState

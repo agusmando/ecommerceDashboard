@@ -242,6 +242,8 @@ export interface VariantFilters extends ListParams {
   maxPrice?: number | '';
   maxStock?: number | '';
   availableWeb?: boolean | '';
+  /** Solo variantes con stock bajo o sin stock (filtro del servidor, todas las páginas). */
+  lowStock?: boolean | '';
 }
 
 export interface VariantInput {
@@ -395,6 +397,7 @@ export const ORDER_ITEM_STATUSES = [
   'FULFILLED',
   'AWAITING_STOCK',
   'PARTIALLY_RETURNED',
+  'OUT_OF_STOCK',
   'CANCELLED',
   'RETURNED',
 ] as const;

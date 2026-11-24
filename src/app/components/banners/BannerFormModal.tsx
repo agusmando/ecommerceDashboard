@@ -95,6 +95,7 @@ export function BannerFormModal({ isOpen, onClose, banner, defaultPlacement = 'H
 
   const spec = specs[placement];
   const fields = PLACEMENT_FIELDS[placement];
+  const isRec = placement === 'HOME_RECOMMENDATION';
   const set = (k: TextKey) => (v: string) => setValues((s) => ({ ...s, [k]: v }));
   const onInput = (k: TextKey) => (e: { target: { value: string } }) => set(k)(e.target.value);
 
@@ -120,6 +121,11 @@ export function BannerFormModal({ isOpen, onClose, banner, defaultPlacement = 'H
     if (fields.size && !size) return 'Elegí el tamaño de la tarjeta.';
     if (spec.textRequired && !v('text')) return 'Ingresá el texto del banner.';
     if (spec.imageRequired && !hasDesktop) return 'Esta ubicación requiere una imagen.';
+    if (isRec) {
+      if (!v('headline')) return 'Ingresá el título de la tarjeta.';
+      if (!v('text')) return 'Ingresá el subtítulo de la tarjeta.';
+      if (!v('linkUrl')) return 'Ingresá el link de la tarjeta.';
+    }
     if (v('linkUrl') && !isValidLink(v('linkUrl'))) return 'El link debe ser una ruta interna (“/productos…”) o una URL que empiece con http(s)://.';
     if (relevant.has('ctaLabel') && v('ctaLabel') && !v('linkUrl')) return 'El botón necesita un link.';
     for (const k of ['backgroundColor', 'textColor'] as const) {
@@ -240,12 +246,17 @@ export function BannerFormModal({ isOpen, onClose, banner, defaultPlacement = 'H
                 </Field>
               )}
               {fields.copy.includes('headline') && (
-                <Field label="Título" htmlFor="bn-headline">
+                <Field label="Título" htmlFor="bn-headline" required={isRec} hint={isRec ? 'Se muestra sobre la imagen de la tarjeta.' : undefined}>
                   <input id="bn-headline" className={inputClass} value={values.headline} onChange={onInput('headline')} maxLength={120} />
                 </Field>
               )}
               {fields.copy.includes('text') && (
-                <Field label={placement === 'ANNOUNCEMENT_BAR' ? 'Texto del anuncio' : 'Texto'} htmlFor="bn-text" required={spec.textRequired}>
+                <Field
+                  label={placement === 'ANNOUNCEMENT_BAR' ? 'Texto del anuncio' : isRec ? 'Subtítulo' : 'Texto'}
+                  htmlFor="bn-text"
+                  required={spec.textRequired || isRec}
+                  hint={isRec ? 'Frase corta debajo del título.' : undefined}
+                >
                   {placement === 'ANNOUNCEMENT_BAR' ? (
                     <input
                       id="bn-text"
@@ -274,7 +285,12 @@ export function BannerFormModal({ isOpen, onClose, banner, defaultPlacement = 'H
             </FormSection>
           )}
 
-          <Field label="Link" htmlFor="bn-link" hint="Ruta interna (/productos?categoria=frutos-secos) o URL completa. Opcional.">
+          <Field
+            label="Link"
+            htmlFor="bn-link"
+            required={isRec}
+            hint={isRec ? 'A dónde lleva la tarjeta (ej. /productos?categoria=frutos-secos).' : 'Ruta interna (/productos?categoria=frutos-secos) o URL completa. Opcional.'}
+          >
             <input id="bn-link" className={inputClass} value={values.linkUrl} onChange={onInput('linkUrl')} placeholder="/productos" />
           </Field>
 
