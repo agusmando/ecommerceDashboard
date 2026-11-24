@@ -56,7 +56,13 @@ export default function Dashboard() {
     <>
       <PageHeader
         title={`${greeting()}${user?.name ? `, ${user.name.split(' ')[0]}` : ''}`}
-        description="Resumen de los últimos 14 días."
+        description={
+          <>
+            Resumen de los últimos 14 días.
+            {stats.truncated && ' Se consideran hasta 1.000 órdenes para los gráficos.'}
+            {stats.failedPages.length > 0 && ` No se pudieron cargar las páginas ${stats.failedPages.join(', ')} de órdenes; algunos indicadores pueden ser parciales.`}
+          </>
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

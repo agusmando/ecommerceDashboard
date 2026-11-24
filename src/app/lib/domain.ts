@@ -51,8 +51,6 @@ export const ORDER_ITEM_STATUS: Record<OrderItemStatus, { label: string; tone: T
 };
 
 export const PAYMENT_LABEL: Record<PaymentType, string> = {
-  DEBIT: 'Débito',
-  CREDIT: 'Crédito',
   CASH: 'Efectivo',
   TRANSFER: 'Transferencia',
   MERCADOPAGO: 'Mercado Pago',

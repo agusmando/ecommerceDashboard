@@ -4,7 +4,7 @@ import type { Order, OrderStatus } from '../api/types';
 import { itemTotal, orderShippingCost, CLOSED_ITEM_STATUSES } from '../lib/domain';
 
 /**
- * Trae las órdenes desde una fecha (hasta 3 páginas de 100, el máximo por
+ * Trae las órdenes desde una fecha (hasta 10 páginas de 100, el máximo por
  * página del backend) y calcula los agregados que usan Inicio y Estadísticas.
  * Las páginas se comparten por cache: si otra vista pidió lo mismo no se repite.
  */
@@ -14,25 +14,53 @@ export function useOrderStats(sinceDay: string) {
   const base = { detalle: true, createdAt: sinceDay, amountPerPage: PAGE };
   const p1 = ordersApi.usePage({ ...base, currentPage: 1 });
   const totalPages = p1.data?.pagination.totalPages ?? 1;
-  const p2 = ordersApi.usePage({ ...base, currentPage: 2 }, { skip: totalPages < 2 });
-  const p3 = ordersApi.usePage({ ...base, currentPage: 3 }, { skip: totalPages < 3 });
+  const pages = [
+    p1,
+    ordersApi.usePage({ ...base, currentPage: 2 }, { skip: totalPages < 2 }),
+    ordersApi.usePage({ ...base, currentPage: 3 }, { skip: totalPages < 3 }),
+    ordersApi.usePage({ ...base, currentPage: 4 }, { skip: totalPages < 4 }),
+    ordersApi.usePage({ ...base, currentPage: 5 }, { skip: totalPages < 5 }),
+    ordersApi.usePage({ ...base, currentPage: 6 }, { skip: totalPages < 6 }),
+    ordersApi.usePage({ ...base, currentPage: 7 }, { skip: totalPages < 7 }),
+    ordersApi.usePage({ ...base, currentPage: 8 }, { skip: totalPages < 8 }),
+    ordersApi.usePage({ ...base, currentPage: 9 }, { skip: totalPages < 9 }),
+    ordersApi.usePage({ ...base, currentPage: 10 }, { skip: totalPages < 10 }),
+  ];
+  const requestedPages = Math.min(totalPages, 10);
+  const pageResults = pages.slice(0, requestedPages).map((page, index) => ({
+    page: index + 1,
+    data: page.data,
+    error: page.error,
+    loading: page.isLoading,
+    fetching: page.isFetching,
+    refetch: page.refetch,
+  }));
 
   const orders = useMemo<Order[]>(
-    () => [...(p1.data?.content ?? []), ...(totalPages >= 2 ? p2.data?.content ?? [] : []), ...(totalPages >= 3 ? p3.data?.content ?? [] : [])],
-    [p1.data, p2.data, p3.data, totalPages],
+    () => pageResults.flatMap((page) => page.data?.content ?? []),
+    [
+      p1.data, pages[1].data, pages[2].data, pages[3].data, pages[4].data,
+      pages[5].data, pages[6].data, pages[7].data, pages[8].data, pages[9].data,
+      requestedPages,
+    ],
   );
 
   const stats = useMemo(() => computeStats(orders, sinceDay), [orders, sinceDay]);
+  const failedPages = pageResults.filter((page) => page.error).map((page) => page.page);
 
   return {
     ...stats,
     orders,
     totalAmount: p1.data?.pagination.totalAmount ?? 0,
-    truncated: totalPages > 3,
-    isLoading: p1.isLoading,
-    isFetching: p1.isFetching || p2.isFetching || p3.isFetching,
-    error: p1.error,
-    refetch: p1.refetch,
+    truncated: totalPages > 10,
+    requestedPages,
+    pagesFetched: pageResults.filter((page) => page.data).length,
+    failedPages,
+    complete: failedPages.length === 0 && totalPages <= 10 && pageResults.every((page) => page.data),
+    isLoading: pageResults.some((page) => page.loading),
+    isFetching: pageResults.some((page) => page.fetching),
+    error: pageResults.find((page) => page.error)?.error,
+    refetch: () => Promise.all(pageResults.map((page) => page.refetch())),
   };
 }
 

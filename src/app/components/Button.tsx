@@ -41,10 +41,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       icon: 'h-9 w-9',
     };
 
+    const loadingVariant = loading
+      ? 'bg-muted text-muted-foreground border border-border hover:bg-muted cursor-wait'
+      : variants[variant];
+
     const Comp = (
       <button
         ref={ref}
-        className={cn(baseStyles, variants[variant], sizes[size], className)}
+        className={cn(baseStyles, loadingVariant, sizes[size], className)}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
         type={type}

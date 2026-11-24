@@ -21,6 +21,7 @@ import { bannersApi, useDeleteBannerMutation, useReorderBannersMutation } from '
 import { getErrorMessage } from '../api/client';
 import { BANNER_PLACEMENTS, type Banner, type BannerPlacement } from '../api/types';
 import { useActiveToggle } from '../hooks/useActiveToggle';
+import { useErrorModal } from '../components/ErrorProvider';
 import { BANNER_SIZE_LABEL, bannerState } from '../lib/domain';
 import { cn, formatDateTime } from '../lib/utils';
 import { PageHeader } from '../components/PageHeader';
@@ -186,6 +187,7 @@ function BannerCard({
 }
 
 export default function Banners() {
+  const showError = useErrorModal();
   const [params, setParams] = useSearchParams();
   const { specs, order } = usePlacementSpecs();
   const raw = params.get('placement') as BannerPlacement | null;
@@ -229,7 +231,7 @@ export default function Banners() {
     try {
       await reorder(ids).unwrap();
     } catch (e) {
-      toast.error('No se pudo reordenar', { description: getErrorMessage(e) });
+      showError({ title: 'No se pudo reordenar', description: getErrorMessage(e) });
     }
   };
 
@@ -294,7 +296,7 @@ export default function Banners() {
 
       {spec.maxActive != null && liveCount > spec.maxActive && (
         <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-          <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
+          <AlertTriangle className="mt-0.5 w-4 h-4" />
           Hay {liveCount} banners vigentes y esta ubicación muestra {spec.maxActive === 1 ? 'solo el primero' : `hasta ${spec.maxActive}`}.
           Reordenalos o desactivá los que sobran.
         </div>

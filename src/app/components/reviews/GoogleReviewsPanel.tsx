@@ -13,6 +13,7 @@ import { Button } from '../Button';
 import { Badge } from '../Badge';
 import { EmptyState, ErrorState, Skeleton } from '../States';
 import { StatTile } from '../StatTile';
+import { useErrorModal } from '../ErrorProvider';
 import { Switch } from '../ui/switch';
 import { Stars } from './Stars';
 
@@ -30,12 +31,13 @@ function Toggle({ id, label, checked, onChange, disabled }: { id: string; label:
 
 function GoogleReviewRow({ review: r }: { review: GoogleReview }) {
   const [update, { isLoading }] = useUpdateGoogleReviewMutation();
+  const showError = useErrorModal();
   const set = async (patch: { featured?: boolean; active?: boolean }, msg: string) => {
     try {
       await update({ id: r.id, body: patch }).unwrap();
       toast.success(msg);
     } catch (e) {
-      toast.error('No se pudo actualizar la reseña', { description: getErrorMessage(e) });
+      showError({ title: 'No se pudo actualizar la reseña', description: getErrorMessage(e) });
     }
   };
   return (
@@ -92,6 +94,7 @@ function GoogleReviewRow({ review: r }: { review: GoogleReview }) {
 
 /** Pestaña "Google": resumen del lugar, sincronización y selección de reseñas destacadas. */
 export function GoogleReviewsPanel() {
+  const showError = useErrorModal();
   const { data, isLoading, error, refetch, isFetching } = useGoogleReviewsQuery();
   const [sync, { isLoading: syncing }] = useSyncGoogleReviewsMutation();
 
@@ -102,7 +105,7 @@ export function GoogleReviewsPanel() {
         description: r.synced ? `Se recibieron ${r.synced} reseñas de Google.` : 'Google no devolvió reseñas nuevas.',
       });
     } catch (e) {
-      toast.error('No se pudo sincronizar con Google', { description: getErrorMessage(e) });
+      showError({ title: 'No se pudo sincronizar con Google', description: getErrorMessage(e) });
     }
   };
 

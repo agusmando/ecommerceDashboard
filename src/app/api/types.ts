@@ -107,6 +107,9 @@ export interface InviteUserResult {
   emailSent: boolean;
   /** Enlace para elegir contraseña (solo para cuentas nuevas). */
   inviteLink: string | null;
+  verificationEmailSent: boolean;
+  /** Enlace manual de verificación, si no se pudo enviar el email. */
+  verificationLink: string | null;
 }
 
 // ---------------------------------------------------------------- Maestros
@@ -399,7 +402,7 @@ export const ORDER_ITEM_STATUSES = [
 ] as const;
 export type OrderItemStatus = (typeof ORDER_ITEM_STATUSES)[number];
 
-export const PAYMENT_TYPES = ['DEBIT', 'CREDIT', 'CASH', 'TRANSFER', 'MERCADOPAGO'] as const;
+export const PAYMENT_TYPES = ['CASH', 'TRANSFER', 'MERCADOPAGO'] as const;
 export type PaymentType = (typeof PAYMENT_TYPES)[number];
 export type PaymentStatus = 'PENDING' | 'IN_PROCESS' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'REFUNDED' | 'CHARGED_BACK';
 
@@ -454,6 +457,13 @@ export interface Order {
   paymentStatusDetail?: string | null;
   paymentId?: string | null;
   paidAt?: ISODate | null;
+  refundId?: string | null;
+  refundStatus?: 'IN_PROGRESS' | 'PENDING' | 'APPROVED' | 'FAILED' | string | null;
+  refundAmount?: number | null;
+  refundNote?: string | null;
+  refundedAt?: ISODate | null;
+  refundEmailId?: string | null;
+  refundEmailSentAt?: ISODate | null;
   estimatedReadyAt: ISODate | null;
   status: OrderStatus;
   orderItems?: OrderItem[];

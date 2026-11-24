@@ -14,6 +14,12 @@ import type { BaseQueryFn } from '@reduxjs/toolkit/query';
 
 const ORIGIN = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
 export const API_BASE_URL = `${ORIGIN}/api`;
+export const DEFAULT_API_TIMEOUT_MS = 15_000;
+
+export function resolveApiTimeout(value?: string): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_API_TIMEOUT_MS;
+}
 
 // ---------------------------------------------------------------- Tokens
 
@@ -185,7 +191,7 @@ export function getErrorMessage(error: unknown): string {
 
 export const http = axios.create({
   baseURL: API_BASE_URL,
-  timeout: Number(import.meta.env.VITE_API_TIMEOUT) || 20000,
+  timeout: resolveApiTimeout(import.meta.env.VITE_API_TIMEOUT),
   // `tags=a&tags=b` (el backend no entiende `tags[]=a`).
   paramsSerializer: { indexes: null },
 });

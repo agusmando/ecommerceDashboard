@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
-import { Check, Clock, CreditCard, MapPin, PackageCheck, PackageX, RotateCcw, Store, Truck, User, XCircle } from 'lucide-react';
-import { ordersApi, useSyncOrderPaymentMutation } from '../api/resources';
+import { AlertTriangle, Check, Clock, CreditCard, MapPin, PackageCheck, PackageX, RotateCcw, Store, Truck, User, XCircle } from 'lucide-react';
+import { ordersApi, useRefundFullOrderMutation, useSyncOrderPaymentMutation } from '../api/resources';
 import type { Order, OrderItem, OrderStatus } from '../api/types';
 import { PageHeader } from '../components/PageHeader';
 import { Card, CardTitle } from '../components/Card';
 import { Button } from '../components/Button';
+import { Modal } from '../components/Modal';
 import { DataTable, type Column } from '../components/DataTable';
 import { OrderItemStatusBadge, OrderStatusBadge, Badge } from '../components/Badge';
 import { RowActions } from '../components/RowActions';
@@ -106,6 +107,21 @@ export default function OrderDetail() {
   const confirm = useConfirm();
   const [partial, setPartial] = useState<OrderItem | null>(null);
   const [awaiting, setAwaiting] = useState<OrderItem | null>(null);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundNote, setRefundNote] = useState('');
+  const [refundFull] = useRefundFullOrderMutation();
+  const [runFullRefund, refundBusy] = useAction(
+    (note: string) => refundFull({ orderId, note }).unwrap(),
+    {
+      success: (result) =>
+        result.emailSent
+          ? result.refundStatus === 'APPROVED'
+            ? 'Orden cancelada, reintegro confirmado y cliente notificado'
+            : 'Orden cancelada, reintegro solicitado y cliente notificado'
+          : 'Reintegro procesado, pero no se pudo enviar el email; podés reintentarlo',
+      error: 'No se pudo cancelar y reintegrar la orden',
+    },
+  );
 
   const [closeItem] = useAction(
     (item: OrderItem, status: 'RETURNED' | 'CANCELLED') => update(orderId, { editItem: [{ id: item.id, status }] }),
@@ -137,6 +153,15 @@ export default function OrderDetail() {
   }
 
   const items = order.orderItems ?? [];
+  const nextOrderStatuses = nextStatuses(order.status).filter(
+    (to) => !(to === 'CANCELLED' && order.paymentType === 'MERCADOPAGO' && order.paymentStatus === 'APPROVED'),
+  );
+  const refundCanBeRetried = ['IN_PROGRESS', 'PENDING', 'FAILED'].includes(order.refundStatus ?? '');
+  const canRefund =
+    order.paymentType === 'MERCADOPAGO' &&
+    order.status !== 'DELIVERED' &&
+    (order.paymentStatus === 'APPROVED' || refundCanBeRetried) &&
+    (order.refundStatus !== 'APPROVED' || !order.refundEmailSentAt);
   const canEditItems = order.status !== 'CANCELLED';
   const subtotal = items
     .filter((i) => !CLOSED_ITEM_STATUSES.includes(i.status))
@@ -159,6 +184,15 @@ export default function OrderDetail() {
       variant: 'danger',
       onConfirm: () => closeItem(item, status),
     });
+  const submitFullRefund = () => {
+    void runFullRefund(refundNote).then(
+      () => {
+        setRefundOpen(false);
+        refetch();
+      },
+      () => undefined,
+    );
+  };
 
   const columns: Column<OrderItem>[] = [
     {
@@ -292,7 +326,8 @@ export default function OrderDetail() {
           </span>
         }
         description={`Creada el ${formatDateTime(order.createdAt)} · actualizada ${formatDateTime(order.updatedAt)}`}
-        actions={nextStatuses(order.status).map((to) => (
+        actions={[
+          ...nextOrderStatuses.map((to) => (
           <Button
             key={to}
             variant={to === 'CANCELLED' ? 'outline' : to === 'PENDING' ? 'ghost' : 'primary'}
@@ -303,11 +338,51 @@ export default function OrderDetail() {
             {ACTION_ICON[to]}
             {label(to)}
           </Button>
-        ))}
+          )),
+          ...(canRefund
+            ? [
+                <Button
+                  key="full-refund"
+                  variant="destructive"
+                  disabled={refundBusy || isFetching}
+                  onClick={() => {
+                    setRefundNote(order.refundNote ?? '');
+                    setRefundOpen(true);
+                  }}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  {order.refundStatus === 'APPROVED'
+                    ? 'Reintentar aviso por email'
+                    : refundCanBeRetried
+                      ? 'Reintentar reintegro total'
+                      : 'Cancelar y reintegrar total'}
+                </Button>,
+              ]
+            : []),
+        ]}
       />
 
       <Card>
         <StatusStepper status={order.status} />
+        {order.refundStatus && (
+          <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 text-sm">
+            <div className="font-medium">
+              Reintegro: {
+                {
+                  IN_PROGRESS: 'en proceso',
+                  PENDING: 'pendiente de confirmación de Mercado Pago',
+                  APPROVED: 'confirmado',
+                  FAILED: 'no confirmado',
+                }[order.refundStatus] ?? order.refundStatus
+              }
+              {order.refundAmount != null && ` · ${formatCurrency(order.refundAmount)}`}
+            </div>
+            {order.refundNote && <p className="mt-1 whitespace-pre-wrap text-muted-foreground">Motivo: {order.refundNote}</p>}
+            <p className="mt-1 text-xs text-muted-foreground">
+              {order.refundEmailSentAt ? 'Aviso enviado al cliente.' : 'El aviso por email está pendiente.'}
+            </p>
+          </div>
+        )}
         {order.status === 'DELIVERED' && (
           <p className="mt-4 text-xs text-muted-foreground">
             Estado final: solo se admiten devoluciones de ítems.
@@ -347,6 +422,46 @@ export default function OrderDetail() {
 
       <PartialReturnModal orderId={order.id} item={partial} onClose={() => setPartial(null)} />
       <AwaitingStockModal orderId={order.id} item={awaiting} onClose={() => setAwaiting(null)} />
+      <Modal
+        isOpen={refundOpen}
+        onClose={() => !refundBusy && setRefundOpen(false)}
+        title="Cancelar y reintegrar el total"
+        description="Se solicitará a Mercado Pago el reintegro total del pago, se cancelará la orden y se repondrá el stock."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRefundOpen(false)} disabled={refundBusy}>Volver</Button>
+            <Button
+              variant="destructive"
+              onClick={submitFullRefund}
+              loading={refundBusy}
+              disabled={!refundNote.trim() || refundNote.trim().length > 2000}
+            >
+              Confirmar reintegro total
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>El reintegro es por el total del pago, no por ítems individuales. Se avisará al cliente a {order.user?.email ?? 'su email registrado'}.</p>
+          </div>
+          <label className="block space-y-1.5 text-sm font-medium" htmlFor="full-refund-note">
+            Productos faltantes y motivo para el cliente
+            <textarea
+              id="full-refund-note"
+              value={refundNote}
+              onChange={(event) => setRefundNote(event.target.value)}
+              maxLength={2000}
+              rows={4}
+              required
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 font-normal"
+              placeholder="Ej.: No contamos con almendras tostadas ni pasas de uva."
+            />
+            <span className="block text-xs font-normal text-muted-foreground">{refundNote.length}/2000</span>
+          </label>
+        </div>
+      </Modal>
     </>
   );
 }

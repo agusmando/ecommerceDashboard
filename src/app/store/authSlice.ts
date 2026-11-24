@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { ApiError, request, tokens } from '../api/client';
+import { validateCurrentUser } from '../api/contracts';
 import { api } from '../api/baseApi';
 import type { User } from '../api/types';
 import { hasPermission } from '../lib/permissions';
@@ -33,7 +34,7 @@ interface StResponse {
   message?: string;
 }
 
-const fetchMe = () => request<User>({ url: '/user/me' });
+const fetchMe = async () => validateCurrentUser(await request<unknown>({ url: '/user/me' }));
 
 const isStaff = (user: User) => hasPermission(user, 'dashboard.access');
 
@@ -105,7 +106,7 @@ interface GoogleState {
 }
 
 /** Solo rutas internas (evita redirecciones abiertas con `returnTo`). */
-const safeReturnTo = (to: string | undefined) => (to && to.startsWith('/') && !to.startsWith('//') ? to : '/dashboard');
+export const safeReturnTo = (to: string | undefined) => (to && to.startsWith('/') && !to.startsWith('//') ? to : '/dashboard');
 
 /** Pide la URL de autorización al backend, guarda state + PKCE y redirige a Google. */
 export async function startGoogleSignIn(returnTo = '/dashboard') {

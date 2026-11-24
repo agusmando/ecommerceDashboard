@@ -1,0 +1,245 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Canela en Rama Admin API — frontend surface",
+    "version": "0.1.0",
+    "description": "Inventario versionado de las rutas que consume el dashboard administrativo. Es una referencia del cliente, no una declaración de autorización ni una especificación completa del backend. Los schemas de payload/respuesta y permisos efectivos deben coordinarse con el repositorio backend antes de usar este documento para generar clientes o gateways."
+  },
+  "servers": [
+    { "url": "/api", "description": "Base path configurada por el cliente web" }
+  ],
+  "tags": [
+    { "name": "Auth" },
+    { "name": "Administration" },
+    { "name": "Masters" },
+    { "name": "Catalog" },
+    { "name": "Sales" },
+    { "name": "Shipping" },
+    { "name": "Content" },
+    { "name": "Users" }
+  ],
+  "paths": {
+    "/health": {
+      "get": { "operationId": "getHealth", "tags": ["Administration"], "summary": "Consultar salud de la API", "responses": { "200": { "description": "Estado de salud" } } }
+    },
+    "/auth/signin": {
+      "post": { "operationId": "signIn", "tags": ["Auth"], "summary": "Iniciar sesión con email y contraseña", "responses": { "200": { "description": "Resultado de SuperTokens" } } }
+    },
+    "/auth/signout": {
+      "post": { "operationId": "signOut", "tags": ["Auth"], "summary": "Cerrar sesión", "responses": { "200": { "description": "Sesión cerrada" } } }
+    },
+    "/auth/session/refresh": {
+      "post": { "operationId": "refreshSession", "tags": ["Auth"], "summary": "Renovar sesión", "responses": { "200": { "description": "Sesión renovada" } } }
+    },
+    "/auth/authorisationurl": {
+      "get": { "operationId": "getGoogleAuthorizationUrl", "tags": ["Auth"], "summary": "Obtener URL de autorización de Google", "responses": { "200": { "description": "URL y datos de flujo OAuth" } } }
+    },
+    "/auth/signinup": {
+      "post": { "operationId": "completeGoogleSignIn", "tags": ["Auth"], "summary": "Completar ingreso con Google", "responses": { "200": { "description": "Resultado de SuperTokens" } } }
+    },
+    "/user/me": {
+      "get": { "operationId": "getCurrentUser", "tags": ["Users"], "summary": "Consultar usuario y permisos efectivos", "responses": { "200": { "description": "Usuario de la sesión actual" } } }
+    },
+    "/user": {
+      "get": { "operationId": "listUsers", "tags": ["Users"], "summary": "Listar usuarios para administración", "x-dashboard-permission": "users.manage", "responses": { "200": { "description": "Usuarios paginados" } } }
+    },
+    "/user/roles": {
+      "get": { "operationId": "listRoleDefinitions", "tags": ["Users"], "summary": "Consultar catálogo de roles", "x-dashboard-permission": "users.manage", "responses": { "200": { "description": "Roles y permisos" } } }
+    },
+    "/user/invite": {
+      "post": { "operationId": "inviteUser", "tags": ["Users"], "summary": "Invitar personal", "x-dashboard-permission": "users.manage", "responses": { "200": { "description": "Resultado de invitación" } } }
+    },
+    "/user/{supertokensId}": {
+      "parameters": [{ "$ref": "#/components/parameters/supertokensId" }],
+      "get": { "operationId": "getUser", "tags": ["Users"], "summary": "Consultar usuario", "responses": { "200": { "description": "Usuario" } } }
+    },
+    "/user/{supertokensId}/detail": {
+      "parameters": [{ "$ref": "#/components/parameters/supertokensId" }],
+      "get": { "operationId": "getManagedUserDetail", "tags": ["Users"], "summary": "Consultar detalle de usuario", "x-dashboard-permission": "users.manage", "responses": { "200": { "description": "Detalle de usuario administrable" } } }
+    },
+    "/user/{supertokensId}/role": {
+      "parameters": [{ "$ref": "#/components/parameters/supertokensId" }],
+      "put": { "operationId": "setUserRole", "tags": ["Users"], "summary": "Asignar o quitar rol de staff", "x-dashboard-permission": "users.manage", "responses": { "200": { "description": "Usuario actualizado" } } }
+    },
+    "/user/{supertokensId}/revoke-sessions": {
+      "parameters": [{ "$ref": "#/components/parameters/supertokensId" }],
+      "post": { "operationId": "revokeUserSessions", "tags": ["Users"], "summary": "Revocar sesiones de usuario", "x-dashboard-permission": "users.manage", "responses": { "200": { "description": "Sesiones revocadas" } } }
+    },
+    "/category": {
+      "get": { "operationId": "listCategories", "tags": ["Masters"], "summary": "Listar categorías", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createCategory", "tags": ["Masters"], "summary": "Crear categoría", "x-dashboard-permission": "masters.edit", "responses": { "200": { "description": "Categoría creada" } } }
+    },
+    "/tag": {
+      "get": { "operationId": "listTags", "tags": ["Masters"], "summary": "Listar etiquetas", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createTag", "tags": ["Masters"], "summary": "Crear etiqueta", "x-dashboard-permission": "masters.edit", "responses": { "200": { "description": "Etiqueta creada" } } }
+    },
+    "/brand": {
+      "get": { "operationId": "listBrands", "tags": ["Masters"], "summary": "Listar marcas", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createBrand", "tags": ["Masters"], "summary": "Crear marca", "x-dashboard-permission": "masters.edit", "responses": { "200": { "description": "Marca creada" } } }
+    },
+    "/supplier": {
+      "get": { "operationId": "listSuppliers", "tags": ["Masters"], "summary": "Listar proveedores", "x-dashboard-permission": "masters.edit", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createSupplier", "tags": ["Masters"], "summary": "Crear proveedor", "x-dashboard-permission": "masters.edit", "responses": { "200": { "description": "Proveedor creado" } } }
+    },
+    "/{resource}/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/resource" }, { "$ref": "#/components/parameters/id" }],
+      "get": { "operationId": "getResourceById", "tags": ["Administration"], "summary": "Obtener detalle de recurso genérico", "responses": { "200": { "description": "Recurso solicitado" } } },
+      "put": { "operationId": "updateResource", "tags": ["Administration"], "summary": "Actualizar recurso genérico", "responses": { "200": { "description": "Recurso actualizado" } } }
+    },
+    "/{resource}/{id}/active": {
+      "parameters": [{ "$ref": "#/components/parameters/resource" }, { "$ref": "#/components/parameters/id" }],
+      "put": { "operationId": "activateResource", "tags": ["Administration"], "summary": "Activar recurso", "responses": { "200": { "description": "Recurso activado" } } },
+      "delete": { "operationId": "deactivateResource", "tags": ["Administration"], "summary": "Desactivar recurso", "responses": { "200": { "description": "Recurso desactivado" } } }
+    },
+    "/product": {
+      "get": { "operationId": "listProducts", "tags": ["Catalog"], "summary": "Listar productos", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createProduct", "tags": ["Catalog"], "summary": "Crear producto", "responses": { "200": { "description": "Producto creado" } } }
+    },
+    "/product/{id}/tags": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "put": { "operationId": "attachProductTags", "tags": ["Catalog"], "summary": "Asociar etiquetas a producto", "responses": { "200": { "description": "Relación actualizada" } } },
+      "delete": { "operationId": "detachProductTags", "tags": ["Catalog"], "summary": "Desasociar etiquetas de producto", "responses": { "200": { "description": "Relación actualizada" } } }
+    },
+    "/brand/{id}/products": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "put": { "operationId": "attachBrandProducts", "tags": ["Catalog"], "summary": "Asociar productos a marca", "responses": { "200": { "description": "Relación actualizada" } } },
+      "delete": { "operationId": "detachBrandProducts", "tags": ["Catalog"], "summary": "Desasociar productos de marca", "responses": { "200": { "description": "Relación actualizada" } } }
+    },
+    "/supplier/{id}/brands": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "put": { "operationId": "attachSupplierBrands", "tags": ["Masters"], "summary": "Asociar marcas a proveedor", "responses": { "200": { "description": "Relación actualizada" } } },
+      "delete": { "operationId": "detachSupplierBrands", "tags": ["Masters"], "summary": "Desasociar marcas de proveedor", "responses": { "200": { "description": "Relación actualizada" } } }
+    },
+    "/product/variant": {
+      "get": { "operationId": "listVariants", "tags": ["Catalog"], "summary": "Listar variantes", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createVariant", "tags": ["Catalog"], "summary": "Crear variante", "responses": { "200": { "description": "Variante creada" } } }
+    },
+    "/product/variant/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "get": { "operationId": "getVariant", "tags": ["Catalog"], "summary": "Consultar variante", "responses": { "200": { "description": "Detalle de variante" } } },
+      "put": { "operationId": "updateVariant", "tags": ["Catalog"], "summary": "Actualizar variante", "responses": { "200": { "description": "Variante actualizada" } } }
+    },
+    "/product/variant/{id}/active": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "put": { "operationId": "activateVariant", "tags": ["Catalog"], "summary": "Activar variante", "responses": { "200": { "description": "Variante activada" } } },
+      "delete": { "operationId": "deactivateVariant", "tags": ["Catalog"], "summary": "Desactivar variante", "responses": { "200": { "description": "Variante desactivada" } } }
+    },
+    "/product/variant/{id}/stock": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "put": { "operationId": "adjustVariantStock", "tags": ["Catalog"], "summary": "Ajustar stock de variante", "x-dashboard-permission": "stock.manage", "responses": { "200": { "description": "Variante y stock actualizados" } } }
+    },
+    "/offer": {
+      "get": { "operationId": "listOffers", "tags": ["Catalog"], "summary": "Listar ofertas", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createOffer", "tags": ["Catalog"], "summary": "Crear oferta", "x-dashboard-permission": "offers.edit", "responses": { "200": { "description": "Oferta creada" } } }
+    },
+    "/movement": {
+      "get": { "operationId": "listMovements", "tags": ["Catalog"], "summary": "Listar movimientos", "x-dashboard-permission": "stock.manage", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createMovement", "tags": ["Catalog"], "summary": "Crear movimiento de stock", "x-dashboard-permission": "stock.manage", "responses": { "200": { "description": "Movimiento creado" } } }
+    },
+    "/movement/bulk": {
+      "post": { "operationId": "createMovementsBulk", "tags": ["Catalog"], "summary": "Crear movimientos en lote", "x-dashboard-permission": "stock.manage", "responses": { "200": { "description": "Resultado de la carga" } } }
+    },
+    "/order": {
+      "get": { "operationId": "listOrders", "tags": ["Sales"], "summary": "Listar órdenes", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createOrder", "tags": ["Sales"], "summary": "Crear venta manual", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Orden creada" } } }
+    },
+    "/order/item": {
+      "get": { "operationId": "listOrderItems", "tags": ["Sales"], "summary": "Listar ítems de orden", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Listado" } } }
+    },
+    "/order/item/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "get": { "operationId": "getOrderItem", "tags": ["Sales"], "summary": "Consultar ítem de orden", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Detalle de ítem" } } }
+    },
+    "/cart": {
+      "get": { "operationId": "listCarts", "tags": ["Sales"], "summary": "Listar carritos en modo lectura", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Listado" } } }
+    },
+    "/shipment": {
+      "get": { "operationId": "listShipments", "tags": ["Shipping"], "summary": "Listar envíos", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createShipment", "tags": ["Shipping"], "summary": "Crear envío", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Envío creado" } } }
+    },
+    "/shipment/meta": {
+      "get": { "operationId": "getShipmentMeta", "tags": ["Shipping"], "summary": "Consultar métodos, estados y transiciones", "responses": { "200": { "description": "Metadatos de envío" } } }
+    },
+    "/shipment/order/{orderId}": {
+      "parameters": [{ "$ref": "#/components/parameters/orderId" }],
+      "get": { "operationId": "getShipmentByOrder", "tags": ["Shipping"], "summary": "Consultar envío asociado a una orden", "responses": { "200": { "description": "Envío asociado" } } }
+    },
+    "/shipment/{id}/events": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "post": { "operationId": "addShipmentEvent", "tags": ["Shipping"], "summary": "Agregar evento y cambiar estado de envío", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Envío actualizado" } } }
+    },
+    "/shipment/track/{code}": {
+      "parameters": [{ "$ref": "#/components/parameters/code" }],
+      "get": { "operationId": "trackShipment", "tags": ["Shipping"], "summary": "Consultar tracking público", "responses": { "200": { "description": "Seguimiento público" } } }
+    },
+    "/shipping/config": {
+      "get": { "operationId": "getShippingConfig", "tags": ["Shipping"], "summary": "Consultar configuración pública de envíos", "responses": { "200": { "description": "Zonas y proveedores disponibles" } } }
+    },
+    "/shipping/zones": {
+      "get": { "operationId": "listShippingZones", "tags": ["Shipping"], "summary": "Listar tarifas por zona", "x-dashboard-permission": "shipping.config", "responses": { "200": { "description": "Listado de zonas" } } },
+      "post": { "operationId": "createShippingZone", "tags": ["Shipping"], "summary": "Crear zona de envío", "x-dashboard-permission": "shipping.config", "responses": { "200": { "description": "Zona creada" } } }
+    },
+    "/shipping/zones/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "put": { "operationId": "updateShippingZone", "tags": ["Shipping"], "summary": "Actualizar tarifa de zona", "x-dashboard-permission": "shipping.config", "responses": { "200": { "description": "Zona actualizada" } } }
+    },
+    "/shipping/shipment/{id}/dispatch": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "post": { "operationId": "dispatchShipment", "tags": ["Shipping"], "summary": "Solicitar repartidor Uber Direct", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Envío actualizado" } } }
+    },
+    "/shipping/shipment/{id}/sync": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "post": { "operationId": "syncShipmentCourier", "tags": ["Shipping"], "summary": "Sincronizar estado de courier", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Envío actualizado" } } }
+    },
+    "/shipping/shipment/{id}/cancel": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "post": { "operationId": "cancelShipmentCourier", "tags": ["Shipping"], "summary": "Cancelar courier", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Envío actualizado" } } }
+    },
+    "/review": {
+      "get": { "operationId": "listReviews", "tags": ["Content"], "summary": "Listar reseñas", "x-dashboard-permission": "content.edit", "responses": { "200": { "description": "Listado" } } }
+    },
+    "/review/stats": {
+      "get": { "operationId": "getReviewStats", "tags": ["Content"], "summary": "Consultar estadísticas de reseñas", "x-dashboard-permission": "content.edit", "responses": { "200": { "description": "Estadísticas" } } }
+    },
+    "/review/summary": {
+      "get": { "operationId": "getReviewSummary", "tags": ["Content"], "summary": "Consultar resumen de reseñas", "responses": { "200": { "description": "Resumen" } } }
+    },
+    "/review/{id}/moderate": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "put": { "operationId": "moderateReview", "tags": ["Content"], "summary": "Aprobar/rechazar y responder reseña", "x-dashboard-permission": "content.edit", "responses": { "200": { "description": "Reseña moderada" } } }
+    },
+    "/google-review/all": {
+      "get": { "operationId": "listGoogleReviews", "tags": ["Content"], "summary": "Listar reseñas de Google", "x-dashboard-permission": "content.edit", "responses": { "200": { "description": "Reseñas y datos de sincronización" } } }
+    },
+    "/google-review/sync": {
+      "post": { "operationId": "syncGoogleReviews", "tags": ["Content"], "summary": "Sincronizar reseñas desde Google", "x-dashboard-permission": "content.edit", "responses": { "200": { "description": "Resultado de sincronización" } } }
+    },
+    "/google-review/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "put": { "operationId": "updateGoogleReview", "tags": ["Content"], "summary": "Cambiar visibilidad o destacado", "x-dashboard-permission": "content.edit", "responses": { "200": { "description": "Reseña actualizada" } } }
+    },
+    "/banner": {
+      "get": { "operationId": "listBanners", "tags": ["Content"], "summary": "Listar banners", "x-dashboard-permission": "content.edit", "responses": { "200": { "description": "Listado" } } },
+      "post": { "operationId": "createBanner", "tags": ["Content"], "summary": "Crear banner", "x-dashboard-permission": "content.edit", "responses": { "200": { "description": "Banner creado" } } }
+    },
+    "/banner/placements": {
+      "get": { "operationId": "getBannerPlacements", "tags": ["Content"], "summary": "Consultar configuración de ubicaciones", "responses": { "200": { "description": "Especificación de ubicaciones" } } }
+    },
+    "/banner/reorder": {
+      "put": { "operationId": "reorderBanners", "tags": ["Content"], "summary": "Reordenar banners", "x-dashboard-permission": "content.edit", "responses": { "200": { "description": "Banners reordenados" } } }
+    },
+    "/payment/order/{id}/sync": {
+      "parameters": [{ "$ref": "#/components/parameters/id" }],
+      "post": { "operationId": "syncOrderPayment", "tags": ["Sales"], "summary": "Volver a consultar estado de pago", "x-dashboard-permission": "orders.manage", "responses": { "200": { "description": "Orden sincronizada" } } }
+    }
+  },
+  "components": {
+    "parameters": {
+      "id": { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } },
+      "orderId": { "name": "orderId", "in": "path", "required": true, "schema": { "type": "integer" } },
+      "supertokensId": { "name": "supertokensId", "in": "path", "required": true, "schema": { "type": "string" } },
+      "code": { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } },
+      "resource": { "name": "resource", "in": "path", "required": true, "schema": { "type": "string", "description": "Recurso REST genérico reconocido por el backend." } }
+    }
+  }
+}

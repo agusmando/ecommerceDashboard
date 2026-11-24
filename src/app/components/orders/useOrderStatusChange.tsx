@@ -6,6 +6,7 @@ import { ORDER_TRANSITIONS, type Order, type OrderStatus } from '../../api/types
 import { ORDER_ACTION, ORDER_STATUS } from '../../lib/domain';
 import { formatOrderNumber } from '../../lib/utils';
 import { useConfirm } from '../ConfirmProvider';
+import { useErrorModal } from '../ErrorProvider';
 
 /** Transiciones válidas desde el estado actual (espejo del backend). */
 export const nextStatuses = (status: OrderStatus) => ORDER_TRANSITIONS[status] ?? [];
@@ -17,6 +18,7 @@ export const nextStatuses = (status: OrderStatus) => ORDER_TRANSITIONS[status] ?
 export function useOrderStatusChange() {
   const [update, state] = ordersApi.useUpdate();
   const confirm = useConfirm();
+  const showError = useErrorModal();
 
   const change = useCallback(
     (order: Pick<Order, 'id' | 'status'>, to: OrderStatus) => {
@@ -25,7 +27,7 @@ export function useOrderStatusChange() {
           await update(order.id, { status: to });
           toast.success(`Orden ${formatOrderNumber(order.id)}: ${ORDER_STATUS[to].label.toLowerCase()}`);
         } catch (e) {
-          toast.error('No se pudo cambiar el estado', { description: getErrorMessage(e) });
+          showError({ title: 'No se pudo cambiar el estado', description: getErrorMessage(e) });
           throw e;
         }
       };
@@ -42,7 +44,7 @@ export function useOrderStatusChange() {
         onConfirm: run,
       });
     },
-    [confirm, update],
+    [confirm, update, showError],
   );
 
   return { change, isLoading: state.isLoading, label: (to: OrderStatus) => ORDER_ACTION[to] };

@@ -1,6 +1,7 @@
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { api, MAX_PAGE_SIZE, type Resource } from './baseApi';
 import { toFormData, type QueryError, type QueryParams } from './client';
+import { validateSpecialized } from './contracts';
 import type {
   Banner,
   BannerFilters,
@@ -210,6 +211,7 @@ const extended = api.injectEndpoints({
     /** Estados, métodos y transiciones válidas. Casi estático: se cachea un buen rato. */
     shipmentMeta: build.query<ShipmentMeta, void>({
       query: () => ({ url: '/shipment/meta' }),
+      transformResponse: (raw: unknown) => validateSpecialized('shipmentMeta', raw) as ShipmentMeta,
       keepUnusedDataFor: 3600,
     }),
 
@@ -237,12 +239,14 @@ const extended = api.injectEndpoints({
     /** Configuración pública: zonas activas, departamentos, proveedores configurados y punto de retiro. */
     shippingConfig: build.query<ShippingConfig, void>({
       query: () => ({ url: '/shipping/config' }),
+      transformResponse: (raw: unknown) => validateSpecialized('shippingConfig', raw) as ShippingConfig,
       providesTags: ['ShippingZone'],
     }),
 
     /** Todas las tarifas por departamento (activas o no). */
     shippingZones: build.query<ShippingZone[], void>({
       query: () => ({ url: '/shipping/zones' }),
+      transformResponse: (raw: unknown) => validateSpecialized('shippingZoneList', raw) as ShippingZone[],
       providesTags: ['ShippingZone'],
     }),
 
@@ -290,6 +294,7 @@ const extended = api.injectEndpoints({
 
     reviewStats: build.query<ReviewStats, void>({
       query: () => ({ url: '/review/stats' }),
+      transformResponse: (raw: unknown) => validateSpecialized('reviewStats', raw) as ReviewStats,
       providesTags: ['Review'],
     }),
 
@@ -315,11 +320,29 @@ const extended = api.injectEndpoints({
       query: (orderId) => ({ url: `/payment/order/${orderId}/sync`, method: 'POST' }),
       invalidatesTags: (_r, e) => (e ? [] : ['Order']),
     }),
+    refundFullOrder: build.mutation<
+      {
+        order: import('./types').Order;
+        refundStatus: string;
+        refundedAmount: number;
+        emailSent: boolean;
+        emailError: string | null;
+      },
+      { orderId: Id; note: string }
+    >({
+      query: ({ orderId, note }) => ({
+        url: `/payment/order/${orderId}/refund`,
+        method: 'POST',
+        data: { note },
+      }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Order']),
+    }),
 
     // ------------------------------------------------------------ Reseñas de Google
 
     googleReviews: build.query<GoogleReviewsResponse, void>({
       query: () => ({ url: '/google-review/all' }),
+      transformResponse: (raw: unknown) => validateSpecialized('googleReviews', raw) as GoogleReviewsResponse,
       providesTags: ['GoogleReview'],
     }),
 
@@ -338,6 +361,7 @@ const extended = api.injectEndpoints({
 
     bannerPlacements: build.query<BannerPlacementSpec[], void>({
       query: () => ({ url: '/banner/placements' }),
+      transformResponse: (raw: unknown) => validateSpecialized('bannerPlacements', raw) as BannerPlacementSpec[],
       keepUnusedDataFor: 3600,
     }),
 
@@ -431,6 +455,7 @@ export const {
   useGoogleReviewsQuery,
   useSyncGoogleReviewsMutation,
   useSyncOrderPaymentMutation,
+  useRefundFullOrderMutation,
   useUpdateGoogleReviewMutation,
   useBannerPlacementsQuery,
   useCreateBannerMutation,

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { getErrorMessage } from '../api/client';
+import { useErrorModal } from '../components/ErrorProvider';
 
 /**
  * Envuelve una acción async (normalmente una mutación) con estado de carga y
@@ -16,6 +17,7 @@ export function useAction<A extends unknown[], R>(
   messages: { success?: string | ((r: R) => string); error?: string } = {},
 ) {
   const [busy, setBusy] = useState(false);
+  const showError = useErrorModal();
 
   const run = useCallback(
     async (...args: A): Promise<R> => {
@@ -26,14 +28,16 @@ export function useAction<A extends unknown[], R>(
         if (msg) toast.success(msg);
         return r;
       } catch (e) {
-        toast.error(messages.error ?? 'No se pudo completar la acción', { description: getErrorMessage(e) });
+        const title = messages.error ?? 'No se pudo completar la acción';
+        const description = getErrorMessage(e);
+        showError({ title, description });
         throw e;
       } finally {
         setBusy(false);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fn],
+    [fn, messages.error, messages.success, showError],
   );
 
   return [run, busy] as const;

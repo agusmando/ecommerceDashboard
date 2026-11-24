@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import { store, useAppDispatch, useAppSelector } from './store';
 import { restoreSession } from './store/authSlice';
 import { ConfirmProvider } from './components/ConfirmProvider';
+import { ErrorProvider } from './components/ErrorProvider';
 import { TooltipProvider } from './components/ui/tooltip';
 import { router } from './routes';
 
@@ -37,7 +38,9 @@ export default function App() {
     <Provider store={store}>
       <TooltipProvider>
         <ConfirmProvider>
-          <Bootstrap />
+          <ErrorProvider>
+            <Bootstrap />
+          </ErrorProvider>
         </ConfirmProvider>
       </TooltipProvider>
     </Provider>

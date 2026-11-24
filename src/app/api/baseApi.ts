@@ -1,5 +1,6 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 import { axiosBaseQuery, type QueryParams } from './client';
+import { validateResource, validateResourceList } from './contracts';
 import type { Id, Paginated } from './types';
 
 /**
@@ -113,7 +114,7 @@ interface ActiveArg extends OneArg {
   active: boolean;
 }
 
-function withPages<T>(raw: Paginated<T> | T[]): Paginated<T> {
+export function normalizePaginated<T>(raw: Paginated<T> | T[]): Paginated<T> {
   if (Array.isArray(raw)) {
     return {
       content: raw,
@@ -142,7 +143,10 @@ export const api = createApi({
     /** Listado sin paginar (`paginate=false`). Ideal para selects y maestros chicos. */
     list: build.query<unknown[], ListArg>({
       query: ({ resource, params }) => ({ url: `/${resource}`, params: { ...params, paginate: false } }),
-      transformResponse: (raw: unknown) => (Array.isArray(raw) ? raw : withPages(raw as Paginated<unknown>).content),
+      transformResponse: (raw: unknown, _meta, { resource }) => {
+        const content = Array.isArray(raw) ? raw : normalizePaginated(raw as Paginated<unknown>).content;
+        return validateResourceList(resource, content);
+      },
       providesTags: (_r, _e, { resource }) => [RESOURCE_TAG[resource]],
     }),
 
@@ -157,12 +161,16 @@ export const api = createApi({
           paginate: true,
         },
       }),
-      transformResponse: (raw: Paginated<unknown> | unknown[]) => withPages(raw),
+      transformResponse: (raw: Paginated<unknown> | unknown[], _meta, { resource }) => {
+        const page = normalizePaginated(raw);
+        return { ...page, content: validateResourceList(resource, page.content) };
+      },
       providesTags: (_r, _e, { resource }) => [RESOURCE_TAG[resource]],
     }),
 
     getOne: build.query<unknown, OneArg>({
       query: ({ resource, id }) => ({ url: `/${resource}/${id}` }),
+      transformResponse: (raw: unknown, _meta, { resource }) => validateResource(resource, raw),
       providesTags: (_r, _e, { resource, id }) => [
         { type: RESOURCE_TAG[resource], id },
         RESOURCE_TAG[resource],
@@ -171,11 +179,13 @@ export const api = createApi({
 
     create: build.mutation<unknown, BodyArg>({
       query: ({ resource, body }) => ({ url: `/${resource}`, method: 'POST', data: body }),
+      transformResponse: (raw: unknown, _meta, { resource }) => validateResource(resource, raw),
       invalidatesTags: (_r, error, { resource }) => (error ? [] : AFFECTS[resource]),
     }),
 
     update: build.mutation<unknown, UpdateArg>({
       query: ({ resource, id, body }) => ({ url: `/${resource}/${id}`, method: 'PUT', data: body }),
+      transformResponse: (raw: unknown, _meta, { resource }) => validateResource(resource, raw),
       invalidatesTags: (_r, error, { resource }) => (error ? [] : AFFECTS[resource]),
     }),
 

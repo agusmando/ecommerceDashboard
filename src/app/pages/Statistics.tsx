@@ -35,6 +35,7 @@ export default function Statistics() {
           <>
             Calculadas a partir de las órdenes creadas desde el {since.split('-').reverse().join('/')}.
             {s.truncated && ' Se analizan las 300 más recientes del período.'}
+            {s.failedPages.length > 0 && ` No se pudieron cargar las páginas ${s.failedPages.join(', ')}; los valores pueden ser parciales.`}
           </>
         }
         actions={<Segmented value={period} onChange={setPeriod} options={[...PERIODS]} />}

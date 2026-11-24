@@ -75,4 +75,10 @@ src/app/
 
 ```bash
 npm run typecheck
+npm test
+npm run check:api-contract
+npm run audit:prod
+npm run build
 ```
+
+Las pruebas son unitarias y de cobertura parcial; no reemplazan pruebas de integración contra el backend. El inventario OpenAPI consumido por el dashboard está en `api-contract/openapi.json` y debe coordinarse con el contrato autoritativo del servidor.

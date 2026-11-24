@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '../api/client';
 import type { Id } from '../api/types';
 import { useConfirm } from '../components/ConfirmProvider';
+import { useErrorModal } from '../components/ErrorProvider';
 
 /**
  * Activar/desactivar con confirmación y toasts. Reutilizado por todos los
@@ -13,6 +14,7 @@ import { useConfirm } from '../components/ConfirmProvider';
  */
 export function useActiveToggle(setActive: (id: Id, active: boolean) => Promise<unknown>, noun: string) {
   const confirm = useConfirm();
+  const showError = useErrorModal();
   return useCallback(
     (id: Id, name: string, currentlyActive: boolean) => {
       const run = async () => {
@@ -20,7 +22,8 @@ export function useActiveToggle(setActive: (id: Id, active: boolean) => Promise<
           await setActive(id, !currentlyActive);
           toast.success(`"${name}" ${currentlyActive ? 'desactivado' : 'activado'}`);
         } catch (e) {
-          toast.error(`No se pudo ${currentlyActive ? 'desactivar' : 'activar'} ${noun}`, {
+          showError({
+            title: `No se pudo ${currentlyActive ? 'desactivar' : 'activar'} ${noun}`,
             description: getErrorMessage(e),
           });
           throw e;
@@ -39,6 +42,6 @@ export function useActiveToggle(setActive: (id: Id, active: boolean) => Promise<
         onConfirm: run,
       });
     },
-    [confirm, noun, setActive],
+    [confirm, noun, setActive, showError],
   );
 }

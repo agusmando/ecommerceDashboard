@@ -13,6 +13,7 @@ import { Field, FormGrid, FormSection, inputClass, SwitchRow, Textarea } from '.
 import { BrandSelect, CategorySelect, TagMultiSelect } from '../CatalogPickers';
 import { ImageInput } from './ImageInput';
 import { draftToInput, emptyVariant, validateVariant, VariantFields, type VariantDraft, type VariantErrors } from './VariantFields';
+import { useErrorModal } from '../ErrorProvider';
 
 interface Errors {
   name?: string;
@@ -23,6 +24,7 @@ interface Errors {
 
 export function CreateProductModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const navigate = useNavigate();
+  const showError = useErrorModal();
   const [create, { isLoading }] = useCreateProductMutation();
 
   const [name, setName] = useState('');
@@ -94,7 +96,7 @@ export function CreateProductModal({ isOpen, onClose }: { isOpen: boolean; onClo
       onClose();
       if (product?.id) navigate(`/dashboard/products/${product.id}`);
     } catch (err) {
-      setServerError(getErrorMessage(err));
+      showError({ title: 'No se pudo crear el producto', description: getErrorMessage(err) });
     }
   };
 

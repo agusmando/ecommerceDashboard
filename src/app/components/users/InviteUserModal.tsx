@@ -24,6 +24,7 @@ export function InviteUserModal({ isOpen, onClose }: { isOpen: boolean; onClose:
   const [emailError, setEmailError] = useState<string | undefined>();
   const [result, setResult] = useState<InviteUserResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedVerification, setCopiedVerification] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -34,6 +35,7 @@ export function InviteUserModal({ isOpen, onClose }: { isOpen: boolean; onClose:
     setEmailError(undefined);
     setResult(null);
     setCopied(false);
+    setCopiedVerification(false);
   }, [isOpen]);
 
   const submit = async (e: React.FormEvent) => {
@@ -64,15 +66,26 @@ export function InviteUserModal({ isOpen, onClose }: { isOpen: boolean; onClose:
     }
   };
 
+  const copyVerification = async () => {
+    if (!result?.verificationLink) return;
+    try {
+      await navigator.clipboard.writeText(result.verificationLink);
+      setCopiedVerification(true);
+      setTimeout(() => setCopiedVerification(false), 2000);
+    } catch {
+      toast.error('No se pudo copiar: seleccioná el enlace y copialo a mano');
+    }
+  };
+
   if (result) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Invitación lista" size="md" footer={<Button onClick={onClose}>Listo</Button>}>
         <div className="space-y-4 text-sm">
           {!result.created ? (
             <p>
-              <strong>{result.user.email}</strong> ya tenía cuenta con contraseña: le asignamos el rol{' '}
-              <strong>{result.user.role ? ROLE_LABEL[result.user.role] : ''}</strong>. Puede entrar al panel con su email y su
-              contraseña de siempre.
+              <strong>{result.user.email}</strong> ya tenía cuenta: le asignamos el rol{' '}
+              <strong>{result.user.role ? ROLE_LABEL[result.user.role] : ''}</strong>. Puede entrar al panel con{' '}
+              {result.user.loginMethods.includes('google') ? 'Google' : 'su email y contraseña de siempre'}.
             </p>
           ) : (
             <>
@@ -106,6 +119,21 @@ export function InviteUserModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                 </Field>
               )}
             </>
+          )}
+          {result.verificationEmailSent && (
+            <p className="rounded-lg border border-border bg-muted/40 p-3">
+              También le enviamos un enlace para confirmar su email. Debe confirmarlo antes de ingresar con Google.
+            </p>
+          )}
+          {result.verificationLink && (
+            <Field label="Enlace para confirmar el email">
+              <div className="flex gap-2">
+                <input readOnly value={result.verificationLink} onFocus={(e) => e.target.select()} className={inputClass} aria-label="Enlace de verificación" />
+                <Button variant="outline" onClick={copyVerification} aria-label="Copiar enlace de verificación">
+                  {copiedVerification ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </Field>
           )}
         </div>
       </Modal>
