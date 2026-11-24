@@ -191,19 +191,30 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                         )
                       }
                     >
-                      <span className="relative">
-                        <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-                        {isCollapsed && item.count && counts[item.count] > 0 && (
-                          <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-500" />
-                        )}
-                      </span>
-                      {!isCollapsed && (
+                      {({ isActive }) => (
                         <>
-                          <span className="flex-1 truncate">{item.label}</span>
-                          {item.count && counts[item.count] > 0 && (
-                            <span className="min-w-5 rounded-full bg-amber-500/15 px-1.5 text-center text-[11px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-                              {counts[item.count]}
-                            </span>
+                          <span className="relative">
+                            <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                            {isCollapsed && item.count && counts[item.count] > 0 && (
+                              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-500" />
+                            )}
+                          </span>
+                          {!isCollapsed && (
+                            <>
+                              <span className="flex-1 truncate">{item.label}</span>
+                              {item.count && counts[item.count] > 0 && (
+                                <span
+                                  className={cn(
+                                    'min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold tabular-nums',
+                                    isActive
+                                      ? 'bg-white/15 text-inherit'
+                                      : 'bg-amber-500/15 text-amber-700 dark:bg-amber-400/20 dark:text-amber-300',
+                                  )}
+                                >
+                                  {counts[item.count]}
+                                </span>
+                              )}
+                            </>
                           )}
                         </>
                       )}
