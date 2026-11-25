@@ -175,18 +175,20 @@ export default function Dashboard() {
             </Link>
           </CardHeader>
           {stats.isLoading ? (
-            <Skeleton className="h-[260px] w-full" />
+            <Skeleton className="min-h-[260px] w-full flex-1" />
           ) : stats.error ? (
             <ErrorState error={stats.error} onRetry={stats.refetch} />
           ) : (
-            <div className="min-h-[260px] flex-1">
-              <TrendChart
-                data={stats.byDay}
-                x="label"
-                y="revenue"
-                height="100%"
-                labelFormat={(_l, row) => `${row.label} · ${row.orders} órdenes`}
-              />
+            <div className="relative min-h-[260px] flex-1">
+              <div className="absolute inset-0">
+                <TrendChart
+                  data={stats.byDay}
+                  x="label"
+                  y="revenue"
+                  height="100%"
+                  labelFormat={(_l, row) => `${row.label} · ${row.orders} órdenes`}
+                />
+              </div>
             </div>
           )}
         </Card>
@@ -200,7 +202,7 @@ export default function Dashboard() {
           {todayLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-10" />
+                <Skeleton key={i} className="h-12" />
               ))}
             </div>
           ) : (
@@ -244,7 +246,7 @@ export default function Dashboard() {
           {variants.isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-10" />
+                <Skeleton key={i} className="h-12" />
               ))}
             </div>
           ) : lowStock.length === 0 ? (
@@ -292,7 +294,7 @@ export default function Dashboard() {
         {pending.isLoading ? (
           <div className="p-4 sm:p-6 space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-8" />
+              <Skeleton key={i} className="h-10" />
             ))}
           </div>
         ) : !pending.data?.content.length ? (

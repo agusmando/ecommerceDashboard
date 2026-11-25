@@ -24,8 +24,8 @@ export default function Statistics() {
   const s = useOrderStats(since);
 
   const loading = s.isLoading;
-  const chartBox = (node: React.ReactNode) =>
-    loading ? <Skeleton className="h-[260px] w-full" /> : s.error ? <ErrorState error={s.error} onRetry={s.refetch} /> : node;
+  const chartBox = (node: React.ReactNode, skeletonClass = 'h-[260px] w-full') =>
+    loading ? <Skeleton className={skeletonClass} /> : s.error ? <ErrorState error={s.error} onRetry={s.refetch} /> : node;
 
   return (
     <>
@@ -54,6 +54,7 @@ export default function Statistics() {
         </CardHeader>
         {chartBox(
           <TrendChart data={s.byDay} x="label" y="revenue" height={280} labelFormat={(_l, row) => `${row.label} · ${row.orders} órdenes`} />,
+          'h-[280px] w-full',
         )}
       </Card>
 
@@ -71,6 +72,7 @@ export default function Statistics() {
             ) : (
               <EmptyState title="Sin ventas en el período" className="py-8" />
             ),
+            'h-[304px] w-full',
           )}
         </Card>
 
@@ -80,7 +82,7 @@ export default function Statistics() {
               <CardTitle>Órdenes por estado</CardTitle>
             </CardHeader>
             {loading ? (
-              <Skeleton className="h-16" />
+              <Skeleton className="h-24" />
             ) : (
               <DistributionBar
                 segments={ORDER_STATUSES.map((st) => ({
@@ -98,7 +100,7 @@ export default function Statistics() {
               <CardTitle>Medios de pago</CardTitle>
             </CardHeader>
             {loading ? (
-              <Skeleton className="h-32" />
+              <Skeleton className="h-44" />
             ) : !s.byPayment.length ? (
               <EmptyState title="Sin datos" className="py-6" />
             ) : (
