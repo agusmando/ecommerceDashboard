@@ -355,6 +355,52 @@ export interface OfferInput {
   finishTime: ISODate;
 }
 
+// ---------------------------------------------------------------- Códigos de descuento (cupón de checkout)
+
+export const COUPON_TYPES = ['PERCENTAGE', 'FIXED'] as const;
+export type CouponType = (typeof COUPON_TYPES)[number];
+
+export interface DiscountCode {
+  id: Id;
+  code: string;
+  description?: string | null;
+  discountType: CouponType | string;
+  discountValue: number;
+  /** Tope del descuento cuando es porcentual (opcional). */
+  maxDiscountAmount?: number | null;
+  /** Subtotal mínimo de productos para que aplique (0 = sin mínimo). */
+  minOrderAmount: number;
+  /** Límite total de canjes (null = ilimitado). */
+  usageLimit?: number | null;
+  /** Límite de usos por cliente (null = ilimitado). */
+  perUserLimit?: number | null;
+  usedCount: number;
+  startTime: ISODate;
+  finishTime: ISODate;
+  active: boolean;
+}
+
+export interface DiscountCodeFilters extends ListParams {
+  code?: string;
+  description?: string;
+  discountType?: CouponType | '';
+  from?: string;
+  to?: string;
+}
+
+export interface DiscountCodeInput {
+  code: string;
+  description?: string;
+  discountType: CouponType;
+  discountValue: number;
+  maxDiscountAmount?: number | null;
+  minOrderAmount?: number;
+  usageLimit?: number | null;
+  perUserLimit?: number | null;
+  startTime: ISODate;
+  finishTime: ISODate;
+}
+
 // ---------------------------------------------------------------- Stock
 
 export const MOVEMENT_TYPES = ['IN', 'OUT', 'ADJUSTMENT', 'RETURN', 'PRODUCTION'] as const;
@@ -366,6 +412,8 @@ export interface Movement {
   quantity: number;
   priceAtTime?: number;
   type: MovementType;
+  /** Motivo legible: "Venta · pedido #123", nota de carga manual, etc. */
+  note?: string | null;
   createdAt: ISODate;
   productVariant?: ProductVariant | null;
 }
@@ -384,6 +432,8 @@ export interface MovementInput {
   productVariantId: Id;
   quantity: number;
   type: Exclude<MovementType, 'PRODUCTION'>;
+  /** Motivo legible del movimiento (opcional). */
+  note?: string;
   /** Fecha del movimiento (ISO). Vacía = ahora. */
   createdAt?: string;
 }
@@ -446,6 +496,10 @@ export interface Order {
   /** Solo productos (con descuentos). Lo que paga el cliente es `totalPrice + shippingCost` (ver `orderChargedTotal`). */
   totalPrice: number;
   totalItems: number;
+  /** Cupón aplicado al checkout (snapshot; el código puede editarse o borrarse después). */
+  couponCode?: string | null;
+  /** Descuento del cupón (se descuenta del total cobrado). */
+  couponDiscount?: number;
   /** Retiro en el local o envío a domicilio (elegido al comprar). */
   shippingMethod?: ShippingMethod;
   /** Costo de envío cobrado al cliente (0 en retiro). */

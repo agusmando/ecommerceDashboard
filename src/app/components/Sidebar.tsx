@@ -17,6 +17,7 @@ import {
   Truck,
   MapPinned,
   MessageSquareText,
+  TicketPercent,
   GalleryHorizontal,
   ChevronsLeft,
   Users,
@@ -61,6 +62,7 @@ const sections: { title: string; items: MenuItem[] }[] = [
       { icon: Boxes, label: 'Inventario', path: '/dashboard/inventory' },
       { icon: ArrowLeftRight, label: 'Movimientos', path: '/dashboard/movements' },
       { icon: Tag, label: 'Ofertas', path: '/dashboard/offers', perm: 'offers.edit' },
+      { icon: TicketPercent, label: 'Códigos', path: '/dashboard/discounts', perm: 'offers.edit' },
     ],
   },
   {

@@ -60,7 +60,7 @@ export default function Statistics() {
       <ShippingStats s={s} loading={loading} chartBox={chartBox} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Productos más vendidos</CardTitle>
             <p className="text-sm text-muted-foreground">Por facturación de líneas no devueltas</p>
@@ -74,7 +74,7 @@ export default function Statistics() {
           )}
         </Card>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Órdenes por estado</CardTitle>
@@ -198,8 +198,10 @@ function ShippingStats({ s, loading, chartBox }: { s: Stats; loading: boolean; c
             <EmptyState title="Sin envíos a domicilio en el período" className="py-8" />
           ) : (
             <div className="grid gap-6 lg:grid-cols-2">
-              <RankingBars data={sh.byZone} label="zone" value="revenue" />
-              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+              <div className="min-w-0">
+                <RankingBars data={sh.byZone} label="zone" value="revenue" />
+              </div>
+              <div className="-mx-4 min-w-0 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                 <table className="w-full min-w-[20rem] text-sm">
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">

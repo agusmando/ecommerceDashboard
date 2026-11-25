@@ -49,11 +49,16 @@ export default function Movements() {
   const totals = useMemo(() => {
     let inSum = 0;
     let outSum = 0;
+    const byType = new Map<MovementType, { count: number; qty: number }>();
     for (const m of rows ?? []) {
       if (m.quantity >= 0) inSum += m.quantity;
       else outSum += m.quantity;
+      const agg = byType.get(m.type) ?? { count: 0, qty: 0 };
+      agg.count += 1;
+      agg.qty += m.quantity;
+      byType.set(m.type, agg);
     }
-    return { inSum, outSum, net: inSum + outSum };
+    return { inSum, outSum, net: inSum + outSum, byType };
   }, [rows]);
 
   const qtyMeasure = (m: Movement) => m.productVariant?.contentMeasure ?? (m.productVariantId === variantId ? measure : undefined);
@@ -76,7 +81,16 @@ export default function Movements() {
         );
       },
     },
-    { key: 'type', header: 'Tipo', cell: (m) => <MovementTypeBadge type={m.type} /> },
+    {
+      key: 'type',
+      header: 'Tipo',
+      cell: (m) => (
+        <div className="min-w-0">
+          <MovementTypeBadge type={m.type} />
+          {m.note && <div className="mt-1 max-w-56 truncate text-xs text-muted-foreground" title={m.note}>{m.note}</div>}
+        </div>
+      ),
+    },
     {
       key: 'qty',
       header: 'Cantidad',
@@ -151,6 +165,30 @@ export default function Movements() {
           hint={totalHint}
         />
       </div>
+
+      {totals.byType.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">En esta página:</span>
+          {[...totals.byType.entries()].map(([type, agg]) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => f.set({ type })}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 transition-colors',
+                v.type === type ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent',
+              )}
+              title={`${agg.count} ${agg.count === 1 ? 'movimiento' : 'movimientos'} · click para filtrar`}
+            >
+              <span className="font-medium">{MOVEMENT_TYPE[type].label}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {agg.count} · {agg.qty >= 0 ? '+' : '−'}
+                {formatQty(Math.abs(agg.qty), measure)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <DataTable
         columns={columns}

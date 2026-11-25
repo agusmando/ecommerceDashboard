@@ -320,12 +320,12 @@ export default function OrderDetail() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-3">
+        <div className="min-w-0 lg:col-span-2 space-y-3">
           <h2 className="text-base font-semibold">Ítems ({items.length})</h2>
           <DataTable columns={columns} rows={items} rowKey={(i) => i.id} fetching={isFetching} empty={{ title: 'La orden no tiene ítems' }} />
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <OrderShipmentCard order={order} />
 
           <Card className="space-y-4">
@@ -399,6 +399,16 @@ function OrderTotals({ order, subtotal, discounts }: { order: Order; subtotal: n
           {discounts ? `−${formatCurrency(discounts)}` : formatCurrency(0)}
         </span>
       </div>
+      {(Number(order.couponDiscount) || 0) > 0 && (
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">
+            Cupón{order.couponCode ? ` ${order.couponCode}` : ''}
+          </span>
+          <span className="tabular-nums text-emerald-700 dark:text-emerald-400">
+            −{formatCurrency(Number(order.couponDiscount))}
+          </span>
+        </div>
+      )}
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Envío</span>
         <span className="tabular-nums">

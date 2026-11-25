@@ -37,6 +37,7 @@ export const TAG_TYPES = [
   'Banner',
   'ShippingZone',
   'User',
+  'DiscountCode',
 ] as const;
 export type TagType = (typeof TAG_TYPES)[number];
 
@@ -54,7 +55,8 @@ export type Resource =
   | 'cart'
   | 'shipment'
   | 'review'
-  | 'banner';
+  | 'banner'
+  | 'discount-code';
 
 export const RESOURCE_TAG: Record<Resource, TagType> = {
   category: 'Category',
@@ -71,6 +73,7 @@ export const RESOURCE_TAG: Record<Resource, TagType> = {
   shipment: 'Shipment',
   review: 'Review',
   banner: 'Banner',
+  'discount-code': 'DiscountCode',
 };
 
 /** Qué otras vistas quedan desactualizadas cuando cambia un recurso. */
@@ -90,6 +93,8 @@ export const AFFECTS: Record<Resource, TagType[]> = {
   shipment: ['Shipment', 'Order'],
   review: ['Review'],
   banner: ['Banner'],
+  // El cupón queda snapshot en la orden: no hace falta invalidar Order.
+  'discount-code': ['DiscountCode'],
 };
 
 export const MAX_PAGE_SIZE = 100;

@@ -6,6 +6,7 @@ import type {
   DiscountType,
   Measure,
   MovementType,
+  DiscountCode,
   Offer,
   OrderItem,
   OrderItemStatus,
@@ -90,11 +91,11 @@ export const PAYMENT_STATUS: Record<PaymentStatus, { label: string; tone: Tone }
 export const paymentLabel = (p: string) => PAYMENT_LABEL[p as PaymentType] ?? p;
 
 export const MOVEMENT_TYPE: Record<MovementType, { label: string; tone: Tone; hint: string }> = {
-  IN: { label: 'Ingreso', tone: 'success', hint: 'Entrada de mercadería (cantidad positiva)' },
+  IN: { label: 'Ingreso', tone: 'success', hint: 'Entrada de mercadería: compras, stock inicial o ajustes positivos' },
   OUT: { label: 'Salida', tone: 'danger', hint: 'Venta, merma o pérdida (cantidad negativa)' },
-  ADJUSTMENT: { label: 'Ajuste', tone: 'info', hint: 'Corrección de inventario (+/−)' },
-  RETURN: { label: 'Devolución', tone: 'violet', hint: 'Devolución manual de un cliente' },
-  PRODUCTION: { label: 'Producción', tone: 'warning', hint: 'Generado al producir un mix' },
+  ADJUSTMENT: { label: 'Ajuste', tone: 'info', hint: 'Corrección por conteo de inventario (+/−)' },
+  RETURN: { label: 'Devolución', tone: 'violet', hint: 'Devolución de un cliente o reposición por cancelación' },
+  PRODUCTION: { label: 'Producción', tone: 'warning', hint: 'Generado al producir un mix (consume componentes)' },
 };
 
 export const DISCOUNT_TYPE: Record<DiscountType, { label: string; short: string }> = {
@@ -254,7 +255,7 @@ export function describeOffer(o: Offer, measure?: Measure | string | null): stri
 
 export type OfferState = 'active' | 'scheduled' | 'expired' | 'inactive';
 
-export function offerState(o: Offer, now = Date.now()): OfferState {
+export function offerState(o: Pick<Offer, 'active' | 'startTime' | 'finishTime'>, now = Date.now()): OfferState {
   if (!o.active) return 'inactive';
   if (new Date(o.startTime).getTime() > now) return 'scheduled';
   if (new Date(o.finishTime).getTime() < now) return 'expired';
@@ -267,6 +268,28 @@ export const OFFER_STATE: Record<OfferState, { label: string; tone: Tone }> = {
   expired: { label: 'Vencida', tone: 'default' },
   inactive: { label: 'Inactiva', tone: 'danger' },
 };
+
+// ---------------------------------------------------------------- Códigos de descuento
+
+export type CouponState = OfferState;
+
+export const couponState = offerState;
+
+export const COUPON_STATE: Record<CouponState, { label: string; tone: Tone }> = OFFER_STATE;
+
+export const COUPON_TYPE: Record<string, { label: string; short: string }> = {
+  PERCENTAGE: { label: 'Porcentaje', short: '% sobre el subtotal' },
+  FIXED: { label: 'Monto fijo', short: '$ fijo sobre el subtotal' },
+};
+
+/** "10% hasta $5.000", "−$2.000"… para mostrar el beneficio del cupón. */
+export function describeCoupon(c: Pick<DiscountCode, 'discountType' | 'discountValue' | 'maxDiscountAmount'>): string {
+  if (c.discountType === 'PERCENTAGE') {
+    const base = `${formatNumber(c.discountValue)} %`;
+    return c.maxDiscountAmount ? `${base} (tope ${formatCurrency(c.maxDiscountAmount)})` : base;
+  }
+  return `−${formatCurrency(c.discountValue)}`;
+}
 
 // ---------------------------------------------------------------- Envíos
 
@@ -346,9 +369,9 @@ export const hasActiveCourier = (s: Pick<Shipment, 'providerDeliveryId' | 'provi
 /** Costo de envío cobrado en la orden (0 si es retiro o el backend no lo informa). */
 export const orderShippingCost = (o: Pick<Order, 'shippingCost'>) => Number(o.shippingCost) || 0;
 
-/** Lo que pagó el cliente: productos (`totalPrice`) + envío. */
-export const orderChargedTotal = (o: Pick<Order, 'totalPrice' | 'shippingCost'>) =>
-  (Number(o.totalPrice) || 0) + orderShippingCost(o);
+/** Lo que pagó el cliente: productos (`totalPrice`) − cupón + envío. */
+export const orderChargedTotal = (o: Pick<Order, 'totalPrice' | 'shippingCost' | 'couponDiscount'>) =>
+  Math.max(0, (Number(o.totalPrice) || 0) - (Number(o.couponDiscount) || 0)) + orderShippingCost(o);
 
 // ---------------------------------------------------------------- Reseñas
 

@@ -31,6 +31,7 @@ export const router = createBrowserRouter([
       { path: 'inventory', lazy: page(() => import('./pages/Inventory')), handle: h({ title: 'Inventario' }) },
       { path: 'movements', lazy: page(() => import('./pages/Movements')), handle: h({ title: 'Movimientos' }) },
       { path: 'offers', lazy: page(() => import('./pages/Offers')), handle: h({ title: 'Ofertas', perm: 'offers.edit' }) },
+      { path: 'discounts', lazy: page(() => import('./pages/Discounts')), handle: h({ title: 'Códigos de descuento', perm: 'offers.edit' }) },
       { path: 'reviews', lazy: page(() => import('./pages/Reviews')), handle: h({ title: 'Reseñas', perm: 'content.edit' }) },
       { path: 'banners', lazy: page(() => import('./pages/Banners')), handle: h({ title: 'Banners', perm: 'content.edit' }) },
       { path: 'categories', lazy: page(() => import('./pages/Categories')), handle: h({ title: 'Categorías', perm: 'masters.edit' }) },

@@ -7,7 +7,7 @@ import { useAction } from '../../hooks/useAction';
 import { MOVEMENT_TYPE, formatQty } from '../../lib/domain';
 import { Button } from '../Button';
 import { Modal } from '../Modal';
-import { AffixInput, Field } from '../Form';
+import { AffixInput, Field, inputClass } from '../Form';
 import { Segmented } from '../Filters';
 import { FormError } from '../States';
 import { MovementDateField, movementDateError, movementDateToIso } from './MovementDateField';
@@ -32,6 +32,7 @@ export function MovementFormModal({ isOpen, onClose, defaultVariantId }: Props) 
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
   const [date, setDate] = useState('');
+  const [note, setNote] = useState('');
 
   // Datos frescos de la variante (stock actual) desde la cache compartida.
   const { data: fetched } = variantsApi.useOne(variantId);
@@ -46,6 +47,7 @@ export function MovementFormModal({ isOpen, onClose, defaultVariantId }: Props) 
     setAmount('');
     setError('');
     setDate('');
+    setNote('');
   }, [isOpen, defaultVariantId]);
 
   const measure = variant?.contentMeasure;
@@ -68,7 +70,13 @@ export function MovementFormModal({ isOpen, onClose, defaultVariantId }: Props) 
     if (dateError) return setError(dateError);
     setError('');
     try {
-      await submit({ productVariantId: variantId, quantity: delta, type, createdAt: movementDateToIso(date) });
+      await submit({
+        productVariantId: variantId,
+        quantity: delta,
+        type,
+        createdAt: movementDateToIso(date),
+        note: note.trim() || undefined,
+      });
       onClose();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -148,6 +156,16 @@ export function MovementFormModal({ isOpen, onClose, defaultVariantId }: Props) 
         </Field>
 
         <MovementDateField value={date} onChange={setDate} />
+
+        <Field label="Motivo / nota" hint="Se muestra en el historial (ej. &quot;Rotura en depósito&quot;, &quot;Cambio de proveedor&quot;).">
+          <input
+            className={inputClass}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Opcional"
+            maxLength={200}
+          />
+        </Field>
 
         {variant && abs > 0 && (
           <div

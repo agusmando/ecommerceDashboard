@@ -11,6 +11,9 @@ import type {
   Category,
   CreateOrderInput,
   CreateShipmentInput,
+  DiscountCode,
+  DiscountCodeFilters,
+  DiscountCodeInput,
   GoogleReview,
   GoogleReviewsResponse,
   Id,
@@ -141,6 +144,10 @@ export const variantsApi = resourceHooks<ProductVariant, VariantFilters, Variant
 );
 
 export const offersApi = resourceHooks<Offer, OfferFilters, OfferInput, Partial<OfferInput>>('offer');
+
+export const discountCodesApi = resourceHooks<DiscountCode, DiscountCodeFilters, DiscountCodeInput, Partial<DiscountCodeInput>>(
+  'discount-code',
+);
 
 export const movementsApi = resourceHooks<Movement, MovementFilters, MovementInput>('movement');
 

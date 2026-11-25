@@ -72,8 +72,8 @@ export function OrderShipmentCard({ order }: { order: Order }) {
             )}
             {shipment.method === 'DELIVERY' && formatShipmentAddress(shipment) && (
               <div className="flex items-start justify-between gap-4">
-                <span className="text-muted-foreground">Dirección</span>
-                <span className="text-right">{formatShipmentAddress(shipment)}</span>
+                <span className="shrink-0 text-muted-foreground">Dirección</span>
+                <span className="min-w-0 break-words text-right">{formatShipmentAddress(shipment)}</span>
               </div>
             )}
             {shipment.estimatedDeliveryAt && (
