@@ -58,7 +58,7 @@ export function TrendChart<T extends Record<string, unknown>>({
   data: T[];
   x: keyof T & string;
   y: keyof T & string;
-  height?: number;
+  height?: number | string;
   currency?: boolean;
   labelFormat?: (label: string, row: Record<string, unknown>) => ReactNode;
 }) {
