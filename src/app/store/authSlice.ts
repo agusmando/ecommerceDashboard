@@ -105,7 +105,16 @@ interface GoogleState {
 }
 
 /** Solo rutas internas (evita redirecciones abiertas con `returnTo`). */
-const safeReturnTo = (to: string | undefined) => (to && to.startsWith('/') && !to.startsWith('//') ? to : '/dashboard');
+export const safeReturnTo = (to: string | undefined, fallback = '/dashboard') => {
+  if (!to || !to.startsWith('/') || to.startsWith('//') || to.includes('\\')) return fallback;
+  try {
+    const url = new URL(to, 'https://admin.canelaenrama.local');
+    if (url.origin !== 'https://admin.canelaenrama.local') return fallback;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return fallback;
+  }
+};
 
 /** Pide la URL de autorización al backend, guarda state + PKCE y redirige a Google. */
 export async function startGoogleSignIn(returnTo = '/dashboard') {

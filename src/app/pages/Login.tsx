@@ -7,7 +7,7 @@ import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { FormError } from '../components/States';
 import { useAppDispatch, useAppSelector } from '../store';
-import { clearNotice, signIn, startGoogleSignIn } from '../store/authSlice';
+import { clearNotice, safeReturnTo, signIn, startGoogleSignIn } from '../store/authSlice';
 import { getErrorMessage } from '../api/client';
 import { GoogleIcon } from '../components/auth/GoogleIcon';
 
@@ -18,7 +18,7 @@ export default function Login() {
   const { status, notice } = useAppSelector((s) => s.auth);
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo = (location.state as { from?: string } | null)?.from ?? '/dashboard';
+  const redirectTo = safeReturnTo((location.state as { from?: string } | null)?.from);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

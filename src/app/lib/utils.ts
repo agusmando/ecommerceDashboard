@@ -35,7 +35,7 @@ function toDate(value: DateInput): Date | null {
 export function formatDate(value: DateInput): string {
   const d = toDate(value);
   return d
-    ? new Intl.DateTimeFormat(LOCALE, { year: 'numeric', month: 'short', day: 'numeric' }).format(d)
+    ? new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d)
     : '—';
 }
 
@@ -43,9 +43,9 @@ export function formatDateTime(value: DateInput): string {
   const d = toDate(value);
   return d
     ? new Intl.DateTimeFormat(LOCALE, {
+        day: '2-digit',
+        month: '2-digit',
         year: 'numeric',
-        month: 'short',
-        day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
       }).format(d)
