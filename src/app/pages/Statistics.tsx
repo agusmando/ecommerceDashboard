@@ -20,10 +20,16 @@ type Period = (typeof PERIODS)[number]['value'];
 
 export default function Statistics() {
   const [period, setPeriod] = useState<Period>('30');
+  const [productChannel, setProductChannel] = useState<'all' | 'web' | 'counter'>('all');
   const since = todayInput(-(Number(period) - 1));
   const s = useOrderStats(since);
 
   const loading = s.isLoading;
+  const productSortKey = productChannel === 'all' ? 'revenue' : productChannel;
+  const productRows = s.topProducts
+    .filter((p) => p[productSortKey] > 0)
+    .sort((a, b) => b[productSortKey] - a[productSortKey])
+    .slice(0, 8);
   const chartBox = (node: React.ReactNode, skeletonClass = 'h-[260px] w-full') =>
     loading ? <Skeleton className={skeletonClass} /> : s.error ? <ErrorState error={s.error} onRetry={s.refetch} /> : node;
 
@@ -53,7 +59,17 @@ export default function Statistics() {
           <p className="text-sm text-muted-foreground">Sin costo de envío</p>
         </CardHeader>
         {chartBox(
-          <TrendChart data={s.byDay} x="label" y="revenue" height={280} labelFormat={(_l, row) => `${row.label} · ${row.orders} órdenes`} />,
+          <TrendChart
+            data={s.byDay}
+            x="label"
+            y="revenue"
+            series={[
+              { key: 'web', label: 'Tienda online', color: 'var(--chart-1)' },
+              { key: 'counter', label: 'Mostrador', color: 'var(--chart-2)' },
+            ]}
+            height={280}
+            labelFormat={(_l, row) => `${row.label} · ${row.orders} órdenes`}
+          />,
           'h-[280px] w-full',
         )}
       </Card>
@@ -62,13 +78,24 @@ export default function Statistics() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="min-w-0">
-          <CardHeader>
-            <CardTitle>Productos más vendidos</CardTitle>
-            <p className="text-sm text-muted-foreground">Por facturación de líneas no devueltas</p>
+          <CardHeader className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <CardTitle>Productos más vendidos</CardTitle>
+              <p className="text-sm text-muted-foreground">Por facturación de líneas no devueltas</p>
+            </div>
+            <Segmented
+              value={productChannel}
+              onChange={setProductChannel}
+              options={[
+                { value: 'all', label: 'Todos' },
+                { value: 'web', label: 'Tienda' },
+                { value: 'counter', label: 'Mostrador' },
+              ]}
+            />
           </CardHeader>
           {chartBox(
-            s.topProducts.length ? (
-              <RankingBars data={s.topProducts} label="name" value="revenue" />
+            productRows.length ? (
+              <RankingBars data={productRows} label="name" value={productSortKey} />
             ) : (
               <EmptyState title="Sin ventas en el período" className="py-8" />
             ),

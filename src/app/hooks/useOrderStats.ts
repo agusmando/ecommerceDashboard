@@ -91,15 +91,21 @@ export function computeStats(orders: Order[], sinceDay: string) {
   };
 
   // Ventas por día, con días vacíos en 0 para no mentir en el eje temporal.
-  const byDayMap = new Map<string, { revenue: number; orders: number }>();
+  // `web`/`counter` reparten la facturación de productos por canal.
+  const byDayMap = new Map<string, { revenue: number; orders: number; web: number; counter: number }>();
   const start = new Date(`${sinceDay}T00:00:00`);
   for (let d = new Date(start); d <= new Date(); d.setDate(d.getDate() + 1)) {
-    byDayMap.set(dayKey(d), { revenue: 0, orders: 0 });
+    byDayMap.set(dayKey(d), { revenue: 0, orders: 0, web: 0, counter: 0 });
   }
   valid.forEach((o) => {
     const k = dayKey(new Date(o.createdAt));
-    const cur = byDayMap.get(k) ?? { revenue: 0, orders: 0 };
-    byDayMap.set(k, { revenue: cur.revenue + Number(o.totalPrice || 0), orders: cur.orders + 1 });
+    const cur = byDayMap.get(k) ?? { revenue: 0, orders: 0, web: 0, counter: 0 };
+    const total = Number(o.totalPrice || 0);
+    cur.revenue += total;
+    cur.orders += 1;
+    if (o.channel === 'COUNTER') cur.counter += total;
+    else cur.web += total;
+    byDayMap.set(k, cur);
   });
   const byDay = [...byDayMap.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
@@ -114,9 +120,10 @@ export function computeStats(orders: Order[], sinceDay: string) {
     byPayment.set(o.paymentType, { count: cur.count + 1, revenue: cur.revenue + Number(o.totalPrice || 0) });
   });
 
-  const products = new Map<string, { name: string; revenue: number; lines: number }>();
+  const products = new Map<string, { name: string; revenue: number; lines: number; web: number; counter: number }>();
   let discounts = 0;
-  valid.forEach((o) =>
+  valid.forEach((o) => {
+    const counter = o.channel === 'COUNTER';
     o.orderItems?.forEach((it) => {
       if (CLOSED_ITEM_STATUSES.includes(it.status)) return;
       discounts += Number(it.discountAppliedSnapshot) || 0;
@@ -125,10 +132,15 @@ export function computeStats(orders: Order[], sinceDay: string) {
           ? `${it.productNameSnapshot} · ${it.variantNameSnapshot}`
           : it.productNameSnapshot;
       const key = String(it.productVariantId ?? name);
-      const cur = products.get(key) ?? { name, revenue: 0, lines: 0 };
-      products.set(key, { name, revenue: cur.revenue + itemTotal(it), lines: cur.lines + 1 });
-    }),
-  );
+      const cur = products.get(key) ?? { name, revenue: 0, lines: 0, web: 0, counter: 0 };
+      const amt = itemTotal(it);
+      cur.revenue += amt;
+      cur.lines += 1;
+      if (counter) cur.counter += amt;
+      else cur.web += amt;
+      products.set(key, cur);
+    });
+  });
 
   return {
     /** Ventas de productos (sin envío). */
@@ -144,6 +156,7 @@ export function computeStats(orders: Order[], sinceDay: string) {
     byDay,
     byStatus,
     byPayment: [...byPayment.entries()].map(([type, v]) => ({ type, ...v })).sort((a, b) => b.revenue - a.revenue),
-    topProducts: [...products.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8),
+    /** Ranking completo por facturación; cada entrada trae el detalle por canal (`web`/`counter`). */
+    topProducts: [...products.values()].sort((a, b) => b.revenue - a.revenue),
   };
 }

@@ -5,6 +5,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -29,7 +30,7 @@ function ChartTooltip({
   labelFormat,
 }: {
   active?: boolean;
-  payload?: { value: number; payload: Record<string, unknown> }[];
+  payload?: { value: number; name?: string; color?: string; payload: Record<string, unknown> }[];
   label?: string;
   format: (v: number) => string;
   labelFormat?: (label: string, row: Record<string, unknown>) => ReactNode;
@@ -39,7 +40,18 @@ function ChartTooltip({
   return (
     <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-md">
       <div className="text-muted-foreground">{labelFormat ? labelFormat(String(label), row) : label}</div>
-      <div className="mt-0.5 text-sm font-semibold text-foreground tabular-nums">{format(payload[0].value)}</div>
+      {payload.length === 1 ? (
+        <div className="mt-0.5 text-sm font-semibold text-foreground tabular-nums">{format(payload[0].value)}</div>
+      ) : (
+        <div className="mt-1 space-y-0.5">
+          {payload.map((p, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-sm font-semibold text-foreground tabular-nums">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
+              <span className="text-muted-foreground">{p.name}:</span> {format(p.value)}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -51,6 +63,7 @@ export function TrendChart<T extends Record<string, unknown>>({
   data,
   x,
   y,
+  series,
   height = 260,
   currency = true,
   labelFormat,
@@ -58,18 +71,23 @@ export function TrendChart<T extends Record<string, unknown>>({
   data: T[];
   x: keyof T & string;
   y: keyof T & string;
+  /** Varias series superpuestas (se ignora `y`). Sin `series` dibuja solo `y`. */
+  series?: { key: keyof T & string; label: string; color: string }[];
   height?: number | string;
   currency?: boolean;
   labelFormat?: (label: string, row: Record<string, unknown>) => ReactNode;
 }) {
+  const areas = series?.length ? series : [{ key: y, label: '', color: 'var(--chart-1)' }];
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <defs>
-          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
-          </linearGradient>
+          {areas.map((a) => (
+            <linearGradient key={a.key} id={`trendFill-${a.key}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={a.color} stopOpacity={0.25} />
+              <stop offset="100%" stopColor={a.color} stopOpacity={0} />
+            </linearGradient>
+          ))}
         </defs>
         <CartesianGrid vertical={false} stroke="var(--border)" />
         <XAxis dataKey={x} tick={AXIS} axisLine={false} tickLine={false} minTickGap={16} />
@@ -84,14 +102,19 @@ export function TrendChart<T extends Record<string, unknown>>({
           cursor={{ stroke: 'var(--muted-foreground)', strokeDasharray: '3 3' }}
           content={<ChartTooltip format={currency ? formatCurrency : formatNumber} labelFormat={labelFormat} />}
         />
-        <Area
-          type="monotone"
-          dataKey={y}
-          stroke="var(--chart-1)"
-          strokeWidth={2}
-          fill="url(#trendFill)"
-          activeDot={{ r: 5, stroke: 'var(--card)', strokeWidth: 2 }}
-        />
+        {areas.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />}
+        {areas.map((a) => (
+          <Area
+            key={a.key}
+            type="monotone"
+            dataKey={a.key}
+            name={a.label || undefined}
+            stroke={a.color}
+            strokeWidth={2}
+            fill={`url(#trendFill-${a.key})`}
+            activeDot={{ r: 5, stroke: 'var(--card)', strokeWidth: 2 }}
+          />
+        ))}
       </AreaChart>
     </ResponsiveContainer>
   );
