@@ -14,9 +14,9 @@ const MAX_RANGES = 2;
 
 const inputClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm tabular-nums disabled:opacity-50 [color-scheme:light_dark]';
-// Los input[type=time] tienen ancho intrínseco propio: en mobile se reparten
-// la fila y no desbordan; en sm+ vuelven a ancho fijo.
-const timeInputClass = `${inputClass} min-w-0 flex-1 basis-24 sm:w-32 sm:flex-none`;
+// Los input[type=time] tienen ancho intrínseco propio: dentro de la grilla de
+// la franja ocupan su columna y nunca desbordan la card.
+const timeInputClass = `${inputClass} w-full min-w-0`;
 
 /**
  * Editor de los horarios de atención del local (`/settings/hours`). Se muestran
@@ -96,59 +96,73 @@ export function BusinessHoursCard() {
               </div>
 
               {h.closed ? (
-                <span className="text-sm text-muted-foreground">No atiende</span>
+                <span className="flex-1 text-sm text-muted-foreground">No atiende</span>
               ) : (
-                <div className="flex flex-1 flex-col gap-2">
-                  {h.ranges.map((r, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <input
-                        type="time"
-                        aria-label={`${DAY_LABEL[h.day]} apertura ${i + 1}`}
-                        className={timeInputClass}
-                        value={r.open}
-                        onChange={(e) =>
-                          patch(h.day, (d) => ({
-                            ...d,
-                            ranges: d.ranges.map((x, xi) => (xi === i ? { ...x, open: e.target.value } : x)),
-                          }))
-                        }
-                      />
-                      <span className="shrink-0 text-xs text-muted-foreground">a</span>
-                      <input
-                        type="time"
-                        aria-label={`${DAY_LABEL[h.day]} cierre ${i + 1}`}
-                        className={timeInputClass}
-                        value={r.close}
-                        onChange={(e) =>
-                          patch(h.day, (d) => ({
-                            ...d,
-                            ranges: d.ranges.map((x, xi) => (xi === i ? { ...x, close: e.target.value } : x)),
-                          }))
-                        }
-                      />
-                      {h.ranges.length > 1 && (
+                // Siempre 2 slots: el día se ve igual tenga 1 o 2 franjas y los
+                // controles quedan alineados entre días.
+                <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                  {Array.from({ length: MAX_RANGES }).map((_, i) => {
+                    const r = h.ranges[i];
+                    if (!r) {
+                      return (
                         <button
+                          key={i}
                           type="button"
-                          aria-label={`Quitar franja ${i + 1} de ${DAY_LABEL[h.day]}`}
-                          onClick={() => patch(h.day, (d) => ({ ...d, ranges: d.ranges.filter((_, xi) => xi !== i) }))}
-                          className="btn-icon size-8 shrink-0 text-muted-foreground hover:text-red-500"
+                          onClick={() =>
+                            patch(h.day, (d) => ({ ...d, ranges: [...d.ranges, { open: '16:00', close: '21:00' }] }))
+                          }
+                          className="flex h-9 items-center justify-center gap-1 rounded-lg border border-dashed border-border text-xs font-medium text-primary transition-colors hover:bg-muted/50"
                         >
-                          <Trash2 className="size-4" />
+                          <Plus className="size-3.5" /> Agregar franja
                         </button>
-                      )}
-                    </div>
-                  ))}
-                  {h.ranges.length < MAX_RANGES && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        patch(h.day, (d) => ({ ...d, ranges: [...d.ranges, { open: '16:00', close: '21:00' }] }))
-                      }
-                      className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
-                    >
-                      <Plus className="size-3.5" /> Agregar franja
-                    </button>
-                  )}
+                      );
+                    }
+                    return (
+                      <div
+                        key={i}
+                        className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2"
+                      >
+                        <input
+                          type="time"
+                          aria-label={`${DAY_LABEL[h.day]} apertura ${i + 1}`}
+                          className={timeInputClass}
+                          value={r.open}
+                          onChange={(e) =>
+                            patch(h.day, (d) => ({
+                              ...d,
+                              ranges: d.ranges.map((x, xi) => (xi === i ? { ...x, open: e.target.value } : x)),
+                            }))
+                          }
+                        />
+                        <span className="shrink-0 text-xs text-muted-foreground">a</span>
+                        <input
+                          type="time"
+                          aria-label={`${DAY_LABEL[h.day]} cierre ${i + 1}`}
+                          className={timeInputClass}
+                          value={r.close}
+                          onChange={(e) =>
+                            patch(h.day, (d) => ({
+                              ...d,
+                              ranges: d.ranges.map((x, xi) => (xi === i ? { ...x, close: e.target.value } : x)),
+                            }))
+                          }
+                        />
+                        {h.ranges.length > 1 ? (
+                          <button
+                            type="button"
+                            aria-label={`Quitar franja ${i + 1} de ${DAY_LABEL[h.day]}`}
+                            onClick={() => patch(h.day, (d) => ({ ...d, ranges: d.ranges.filter((_, xi) => xi !== i) }))}
+                            className="btn-icon size-8 shrink-0 text-muted-foreground hover:text-red-500"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        ) : (
+                          // Reserva el lugar del botón para que la fila no cambie de alto.
+                          <span className="size-8 shrink-0" aria-hidden="true" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </li>
