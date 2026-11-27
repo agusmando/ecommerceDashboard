@@ -76,6 +76,20 @@ export function OrderShipmentCard({ order }: { order: Order }) {
                 <span className="min-w-0 break-words text-right">{formatShipmentAddress(shipment)}</span>
               </div>
             )}
+            {shipment.recipientName && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Destinatario</span>
+                <span className="truncate">{shipment.recipientName}</span>
+              </div>
+            )}
+            {shipment.phone && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Teléfono</span>
+                <a href={`tel:${shipment.phone}`} className="truncate hover:underline">
+                  {shipment.phone}
+                </a>
+              </div>
+            )}
             {shipment.estimatedDeliveryAt && (
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground">Estimado</span>
