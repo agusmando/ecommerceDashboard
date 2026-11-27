@@ -94,14 +94,14 @@ export default function Statistics() {
               ]}
             />
           </CardHeader>
-          <div className="min-h-[280px] flex-1">
+          <div className="h-[clamp(20rem,45vh,32rem)]">
             {chartBox(
               productRows.length ? (
                 <RankingBars data={productRows} label="name" value={productSortKey} height="100%" />
               ) : (
                 <EmptyState title="Sin ventas en el período" className="py-8" />
               ),
-              'h-full min-h-[280px]',
+              'h-full',
             )}
           </div>
         </Card>
