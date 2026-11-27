@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
+import { CommandPalette } from '../components/CommandPalette';
 import { useAppSelector } from '../store';
 import { Card } from '../components/Card';
 import { EmptyState } from '../components/States';
@@ -57,6 +58,7 @@ export function DashboardLayout() {
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header title={handle.title} onMenuClick={() => setMobileOpen(true)} />
+        <CommandPalette />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 space-y-6">
             {handle.perm && !hasPermission(user, handle.perm) ? <Forbidden /> : <Outlet />}

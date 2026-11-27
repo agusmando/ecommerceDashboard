@@ -32,7 +32,7 @@ import { toggleSidebar } from '../store/uiSlice';
 import { orderItemsApi, ordersApi, useReviewStatsQuery } from '../api/resources';
 import { hasPermission, ROLE_LABEL, type Permission, type StaffRole } from '../lib/permissions';
 
-interface MenuItem {
+export interface MenuItem {
   icon: LucideIcon;
   label: string;
   path: string;
@@ -43,7 +43,7 @@ interface MenuItem {
   perm?: Permission;
 }
 
-const sections: { title: string; items: MenuItem[] }[] = [
+export const sections: { title: string; items: MenuItem[] }[] = [
   {
     title: 'Ventas',
     items: [

@@ -555,7 +555,11 @@ export interface OrderFilters extends ListParams {
   status?: OrderStatus | '';
   shippingMethod?: ShippingMethod | '';
   paymentType?: string;
+  /** Estado del cobro online (p. ej. PENDING para revisar pagos de Mercado Pago). */
+  paymentStatus?: string;
   userSuperTokensId?: string;
+  /** Búsqueda libre: email/nombre del cliente, código de seguimiento o producto. */
+  q?: string;
   /** Creadas desde (YYYY-MM-DD). */
   createdAt?: string;
 }

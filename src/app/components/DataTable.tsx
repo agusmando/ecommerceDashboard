@@ -38,6 +38,12 @@ interface DataTableProps<T> {
   };
   /** Contenido sobre la tabla dentro de la misma tarjeta (p. ej. filtros). */
   toolbar?: ReactNode;
+  /** Selección de filas para acciones masivas. */
+  selection?: {
+    selected: ReadonlySet<string | number>;
+    onToggle: (key: string | number, checked: boolean) => void;
+    onToggleAll: (checked: boolean) => void;
+  };
   className?: string;
 }
 
@@ -56,10 +62,13 @@ export function DataTable<T>({
   empty = { title: 'No hay resultados' },
   pagination,
   toolbar,
+  selection,
   className,
 }: DataTableProps<T>) {
   const showSkeleton = loading && !rows;
   const showError = !!error && !rows;
+  const allSelected = !!selection && !!rows?.length && rows.every((r) => selection.selected.has(rowKey(r)));
+  const someSelected = !!selection && !!rows?.length && rows.some((r) => selection.selected.has(rowKey(r)));
 
   return (
     <Card className={cn('p-0 sm:p-0 overflow-hidden', className)}>
@@ -76,6 +85,20 @@ export function DataTable<T>({
           <table className="w-full text-sm">
             <thead className="bg-muted/40 border-b border-border">
               <tr>
+                {selection && (
+                  <th scope="col" className="w-10 px-4 py-2.5">
+                    <input
+                      type="checkbox"
+                      aria-label="Seleccionar todas las filas"
+                      checked={allSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = !allSelected && someSelected;
+                      }}
+                      onChange={(e) => selection.onToggleAll(e.target.checked)}
+                      className="size-4 cursor-pointer accent-primary"
+                    />
+                  </th>
+                )}
                 {columns.map((c) => (
                   <th
                     key={c.key}
@@ -100,8 +123,20 @@ export function DataTable<T>({
                   className={cn(
                     onRowClick && 'cursor-pointer hover:bg-muted/40 transition-colors',
                     rowClassName?.(row),
+                    selection?.selected.has(rowKey(row)) && 'bg-primary/5',
                   )}
                 >
+                  {selection && (
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label="Seleccionar fila"
+                        checked={selection.selected.has(rowKey(row))}
+                        onChange={(e) => selection.onToggle(rowKey(row), e.target.checked)}
+                        className="size-4 cursor-pointer accent-primary"
+                      />
+                    </td>
+                  )}
                   {columns.map((c) => (
                     <td
                       key={c.key}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Eye, LayoutGrid, List, Package, Plus, Power, PowerOff } from 'lucide-react';
+import { Download, Eye, LayoutGrid, List, Package, Plus, Power, PowerOff } from 'lucide-react';
 import { productsApi } from '../api/resources';
 import type { Product, ProductVariant } from '../api/types';
 import { useListFilters } from '../hooks/useListFilters';
@@ -8,6 +8,7 @@ import { useActiveToggle } from '../hooks/useActiveToggle';
 import { useCan } from '../hooks/useCan';
 import { formatQty, priceUnit, stockLevel, type Tone } from '../lib/domain';
 import { cn, formatCurrency } from '../lib/utils';
+import { downloadCsv, csvFilename, toCsv } from '../lib/csv';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -94,6 +95,28 @@ function TagChips({ p, max = 3 }: { p: Product; max?: number }) {
 
 function firstImage(p: Product): string | undefined {
   return (p.variants ?? []).flatMap((v: ProductVariant) => v.images ?? [])[0]?.secure_url;
+}
+
+/** CSV de los productos visibles (página actual con los filtros aplicados). */
+function productsCsv(rows: Product[]) {
+  return toCsv(
+    ['Producto', 'Categoría', 'Marca', 'Local', 'Etiquetas', 'Variantes', 'Precio desde', 'Precio hasta', 'Stock', 'Estado'],
+    rows.map((p) => {
+      const s = productSummary(p);
+      return [
+        p.name,
+        p.Category?.name ?? '',
+        p.Brand?.name ?? '',
+        p.isLocal || s.variants.some((v) => v.isLocal) ? 'Sí' : '',
+        (p.Tags ?? []).map((t) => t.name).join(' | '),
+        s.variants.length,
+        s.min ? s.min.toFixed(2) : '',
+        s.max !== s.min && s.max ? s.max.toFixed(2) : '',
+        s.stock,
+        p.active ? 'Activo' : 'Inactivo',
+      ];
+    }),
+  );
 }
 
 // ---------------------------------------------------------------- Página
@@ -259,11 +282,22 @@ export default function Products() {
           query.data ? `${query.data.pagination.totalAmount} productos en el catálogo` : 'Catálogo de productos y sus variantes'
         }
         actions={
-          canCreate && (
-            <Button onClick={() => setCreating(true)}>
-              <Plus className="w-4 h-4" /> Nuevo producto
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => rows?.length && downloadCsv(csvFilename('productos'), productsCsv(rows))}
+              disabled={!rows?.length}
+              title="Descarga los productos de la página actual (con los filtros aplicados)"
+            >
+              <Download className="w-4 h-4" />
+              Exportar CSV
             </Button>
-          )
+            {canCreate && (
+              <Button onClick={() => setCreating(true)}>
+                <Plus className="w-4 h-4" /> Nuevo producto
+              </Button>
+            )}
+          </div>
         }
       />
 

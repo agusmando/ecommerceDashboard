@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { AlertTriangle, ArrowRight, ChevronRight, Clock, DollarSign, PackageSearch, Receipt, ShoppingCart, Tag, Ticket, Truck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronRight, Clock, CreditCard, DollarSign, PackageSearch, Receipt, ShoppingCart, Tag, Ticket, Truck } from 'lucide-react';
 import { cartsApi, discountCodesApi, offersApi, orderItemsApi, ordersApi, variantsApi } from '../api/resources';
 import type { OrderStatus, ProductVariant } from '../api/types';
 import { Card, CardHeader, CardTitle } from '../components/Card';
@@ -32,6 +32,7 @@ export default function Dashboard() {
   const todayRevenue = stats.byDay.find((d) => d.day === today)?.revenue ?? 0;
 
   const pending = ordersApi.usePage({ status: 'PENDING', amountPerPage: 5, detalle: true });
+  const mpPending = ordersApi.usePage({ paymentType: 'MERCADOPAGO', paymentStatus: 'PENDING', amountPerPage: 1 });
   const processing = ordersApi.usePage({ status: 'PROCESSING', amountPerPage: 1 });
   const processingDelivery = ordersApi.usePage({ status: 'PROCESSING', shippingMethod: 'DELIVERY', amountPerPage: 1 });
   const awaiting = orderItemsApi.usePage({ status: 'AWAITING_STOCK', amountPerPage: 5 });
@@ -67,10 +68,15 @@ export default function Dashboard() {
   );
 
   const todayLoading =
-    processingDelivery.isLoading || awaiting.isLoading || carts.isLoading || offers.isLoading || discountCodes.isLoading;
+    processingDelivery.isLoading || awaiting.isLoading || carts.isLoading || offers.isLoading || discountCodes.isLoading || mpPending.isLoading;
 
   const goOrders = (status: OrderStatus) => {
     dispatch(patchFilters({ key: 'orders', patch: { status, page: 1 } }));
+    navigate('/dashboard/orders');
+  };
+
+  const goMpPending = () => {
+    dispatch(patchFilters({ key: 'orders', patch: { paymentType: 'MERCADOPAGO', paymentStatus: 'PENDING', page: 1 } }));
     navigate('/dashboard/orders');
   };
 
@@ -86,6 +92,13 @@ export default function Dashboard() {
       value: processingDelivery.data?.pagination.totalAmount ?? 0,
       hint: `${processing.data?.pagination.totalAmount ?? 0} en preparación en total`,
       onClick: () => goOrders('PROCESSING'),
+    },
+    {
+      icon: CreditCard,
+      label: 'Pagos por confirmar',
+      value: mpPending.data?.pagination.totalAmount ?? 0,
+      hint: 'Mercado Pago pendientes de revisar',
+      onClick: goMpPending,
     },
     {
       icon: PackageSearch,

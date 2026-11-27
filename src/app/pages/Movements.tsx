@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, ListPlus, Plus, Scale, X } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Download, ListPlus, Plus, Scale, X } from 'lucide-react';
 import { movementsApi, variantsApi } from '../api/resources';
 import { MOVEMENT_TYPES, type Id, type Movement, type MovementType } from '../api/types';
 import { useListFilters } from '../hooks/useListFilters';
 import { useCan } from '../hooks/useCan';
 import { MOVEMENT_TYPE, formatQty } from '../lib/domain';
 import { cn, formatCurrency, formatDateTime } from '../lib/utils';
+import { downloadCsv, csvFilename, toCsv } from '../lib/csv';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { StatTile } from '../components/StatTile';
@@ -62,6 +63,26 @@ export default function Movements() {
   }, [rows]);
 
   const qtyMeasure = (m: Movement) => m.productVariant?.contentMeasure ?? (m.productVariantId === variantId ? measure : undefined);
+
+  const movementsCsv = (list: Movement[]) =>
+    toCsv(
+      ['Fecha', 'ID', 'Producto', 'Variante', 'Tipo', 'Cantidad', 'Unidad', 'Costo', 'Nota'],
+      list.map((m) => {
+        const pv = m.productVariant;
+        const m2 = qtyMeasure(m);
+        return [
+          m.createdAt,
+          m.id,
+          pv?.product?.name ?? pv?.name ?? `#${m.productVariantId}`,
+          pv?.name && pv.name !== pv.product?.name && pv.name !== 'default' ? pv.name : '',
+          MOVEMENT_TYPE[m.type]?.label ?? m.type,
+          m.quantity,
+          m2 ?? '',
+          m.priceAtTime ?? '',
+          m.note ?? '',
+        ];
+      }),
+    );
 
   const columns: Column<Movement>[] = [
     { key: 'date', header: 'Fecha', cell: (m) => <span className="whitespace-nowrap">{formatDateTime(m.createdAt)}</span> },
@@ -126,18 +147,29 @@ export default function Movements() {
         title="Movimientos de stock"
         description="Historial de ingresos, salidas, ajustes, devoluciones y producción de mixes. Más recientes primero."
         actions={
-          canRegister && (
-            <>
-              <Button variant="outline" onClick={() => setBulkOpen(true)}>
-                <ListPlus className="w-4 h-4" />
-                Carga masiva
-              </Button>
-              <Button onClick={() => setFormOpen(true)}>
-                <Plus className="w-4 h-4" />
-                Registrar movimiento
-              </Button>
-            </>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => rows?.length && downloadCsv(csvFilename('movimientos'), movementsCsv(rows))}
+              disabled={!rows?.length}
+              title="Descarga los movimientos de la página actual (con los filtros aplicados)"
+            >
+              <Download className="w-4 h-4" />
+              Exportar CSV
+            </Button>
+            {canRegister && (
+              <>
+                <Button variant="outline" onClick={() => setBulkOpen(true)}>
+                  <ListPlus className="w-4 h-4" />
+                  Carga masiva
+                </Button>
+                <Button onClick={() => setFormOpen(true)}>
+                  <Plus className="w-4 h-4" />
+                  Registrar movimiento
+                </Button>
+              </>
+            )}
+          </div>
         }
       />
 
