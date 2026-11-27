@@ -14,6 +14,9 @@ const MAX_RANGES = 2;
 
 const inputClass =
   'h-9 rounded-lg border border-border bg-background px-2 text-sm tabular-nums disabled:opacity-50 [color-scheme:light_dark]';
+// Los input[type=time] tienen ancho intrínseco propio: en mobile se reparten
+// la fila y no desbordan; en sm+ vuelven a ancho fijo.
+const timeInputClass = `${inputClass} min-w-0 flex-1 basis-24 sm:w-32 sm:flex-none`;
 
 /**
  * Editor de los horarios de atención del local (`/settings/hours`). Se muestran
@@ -101,7 +104,7 @@ export function BusinessHoursCard() {
                       <input
                         type="time"
                         aria-label={`${DAY_LABEL[h.day]} apertura ${i + 1}`}
-                        className={inputClass}
+                        className={timeInputClass}
                         value={r.open}
                         onChange={(e) =>
                           patch(h.day, (d) => ({
@@ -110,11 +113,11 @@ export function BusinessHoursCard() {
                           }))
                         }
                       />
-                      <span className="text-xs text-muted-foreground">a</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">a</span>
                       <input
                         type="time"
                         aria-label={`${DAY_LABEL[h.day]} cierre ${i + 1}`}
-                        className={inputClass}
+                        className={timeInputClass}
                         value={r.close}
                         onChange={(e) =>
                           patch(h.day, (d) => ({
@@ -128,7 +131,7 @@ export function BusinessHoursCard() {
                           type="button"
                           aria-label={`Quitar franja ${i + 1} de ${DAY_LABEL[h.day]}`}
                           onClick={() => patch(h.day, (d) => ({ ...d, ranges: d.ranges.filter((_, xi) => xi !== i) }))}
-                          className="btn-icon size-8 text-muted-foreground hover:text-red-500"
+                          className="btn-icon size-8 shrink-0 text-muted-foreground hover:text-red-500"
                         >
                           <Trash2 className="size-4" />
                         </button>

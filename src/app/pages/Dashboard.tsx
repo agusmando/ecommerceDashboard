@@ -318,13 +318,18 @@ export default function Dashboard() {
               <li key={o.id}>
                 <Link
                   to={`/dashboard/orders/${o.id}`}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-6 py-3 text-sm hover:bg-muted/40"
+                  className="flex items-center gap-3 px-4 sm:px-6 py-3 text-sm hover:bg-muted/40"
                 >
-                  <span className="font-mono font-medium">{formatOrderNumber(o.id)}</span>
-                  <span className="text-muted-foreground">{formatRelative(o.createdAt)}</span>
-                  <span className="min-w-0 max-w-full truncate text-muted-foreground">{o.user?.email ?? o.userSuperTokensId.slice(0, 8)}</span>
-                  <span className="ml-auto font-medium tabular-nums">{formatCurrency(orderChargedTotal(o))}</span>
-                  <OrderStatusBadge status={o.status} method={o.shippingMethod} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-medium">{formatOrderNumber(o.id)}</span>
+                      <OrderStatusBadge status={o.status} method={o.shippingMethod} />
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {formatRelative(o.createdAt)} · {o.user?.email ?? o.userSuperTokensId.slice(0, 8)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-medium tabular-nums">{formatCurrency(orderChargedTotal(o))}</span>
                 </Link>
               </li>
             ))}
