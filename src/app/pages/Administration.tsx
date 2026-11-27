@@ -5,6 +5,7 @@ import { useHealthQuery } from '../api/resources';
 import { api } from '../api/baseApi';
 import { API_BASE_URL, getErrorMessage } from '../api/client';
 import { Card, CardHeader, CardTitle } from '../components/Card';
+import { BusinessHoursCard } from '../components/BusinessHoursCard';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
@@ -156,6 +157,8 @@ export default function Administration() {
             </Button>
           </div>
         </Card>
+
+        <BusinessHoursCard />
       </div>
     </>
   );

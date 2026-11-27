@@ -7,6 +7,7 @@ import type {
   BannerInput,
   BannerPlacementSpec,
   Brand,
+  BusinessHours,
   Cart,
   Category,
   CreateOrderInput,
@@ -269,6 +270,19 @@ const extended = api.injectEndpoints({
       invalidatesTags: (_r, e) => (e ? [] : ['Variant', 'Product', 'Movement']),
     }),
 
+    // ------------------------------------------------------------ Configuración del comercio
+
+    /** Horarios de atención del local (público en el backend; acá con sesión). */
+    businessHours: build.query<BusinessHours, void>({
+      query: () => ({ url: '/settings/hours' }),
+      providesTags: ['Settings'],
+    }),
+
+    saveBusinessHours: build.mutation<BusinessHours, { hours: BusinessHours['hours'] }>({
+      query: (body) => ({ url: '/settings/hours', method: 'PUT', data: body }),
+      invalidatesTags: (_r, e) => (e ? [] : ['Settings']),
+    }),
+
     /** Carga masiva de movimientos: todos o ninguno (el error indica la fila). */
     createMovementsBulk: build.mutation<{ count: number }, import('./types').MovementInput[]>({
       query: (movements) => ({ url: '/movement/bulk', method: 'POST', data: { movements } }),
@@ -481,6 +495,8 @@ export const {
   useSetUserRoleMutation,
   useRevokeUserSessionsMutation,
   useInviteUserMutation,
+  useBusinessHoursQuery,
+  useSaveBusinessHoursMutation,
 } = extended;
 
 /** Hasta 100 por página es el máximo que acepta el backend. */

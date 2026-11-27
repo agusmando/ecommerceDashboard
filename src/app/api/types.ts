@@ -973,3 +973,18 @@ export interface BannerInput extends BannerFields {
   removeDesktopImage?: boolean;
   removeMobileImage?: boolean;
 }
+
+/** `GET|PUT /settings/hours`: franjas de atención por día (0=Lunes … 6=Domingo, hasta 2 por día). */
+export interface BusinessHourRange {
+  open: string;
+  close: string;
+}
+export interface BusinessHour {
+  day: number;
+  closed: boolean;
+  ranges: BusinessHourRange[];
+}
+export interface BusinessHours {
+  hours: BusinessHour[];
+  updatedAt: ISODate | null;
+}

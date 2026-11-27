@@ -38,6 +38,7 @@ export const TAG_TYPES = [
   'ShippingZone',
   'User',
   'DiscountCode',
+  'Settings',
 ] as const;
 export type TagType = (typeof TAG_TYPES)[number];
 
