@@ -126,19 +126,22 @@ export function RankingBars<T extends Record<string, unknown>>({
   label,
   value,
   currency = true,
+  height,
 }: {
   data: T[];
   label: keyof T & string;
   value: keyof T & string;
   currency?: boolean;
+  /** Alto del gráfico; por defecto se calcula según la cantidad de barras. */
+  height?: number | string;
 }) {
-  const height = Math.max(120, data.length * 36 + 16);
+  const chartHeight = height ?? Math.max(120, data.length * 36 + 16);
   // En pantallas chicas se acorta la columna de etiquetas para dejar lugar a las barras.
   const isMobile = useIsMobile();
   const labelWidth = isMobile ? 96 : 150;
   const maxChars = isMobile ? 14 : 22;
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ResponsiveContainer width="100%" height={chartHeight}>
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }} barCategoryGap={8}>
         <CartesianGrid horizontal={false} stroke="var(--border)" />
         <XAxis

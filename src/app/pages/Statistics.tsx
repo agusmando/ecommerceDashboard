@@ -77,7 +77,8 @@ export default function Statistics() {
       <ShippingStats s={s} loading={loading} chartBox={chartBox} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="min-w-0">
+        <div className="min-w-0 space-y-6">
+        <Card className="flex min-w-0 flex-col">
           <CardHeader className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <CardTitle>Productos más vendidos</CardTitle>
@@ -93,15 +94,20 @@ export default function Statistics() {
               ]}
             />
           </CardHeader>
-          {chartBox(
-            productRows.length ? (
-              <RankingBars data={productRows} label="name" value={productSortKey} />
-            ) : (
-              <EmptyState title="Sin ventas en el período" className="py-8" />
-            ),
-            'h-[304px] w-full',
-          )}
+          <div className="min-h-[280px] flex-1">
+            {chartBox(
+              productRows.length ? (
+                <RankingBars data={productRows} label="name" value={productSortKey} height="100%" />
+              ) : (
+                <EmptyState title="Sin ventas en el período" className="py-8" />
+              ),
+              'h-full min-h-[280px]',
+            )}
+          </div>
         </Card>
+
+        <ChannelStats s={s} loading={loading} />
+        </div>
 
         <div className="min-w-0 space-y-6">
           <Card>
@@ -165,8 +171,6 @@ export default function Statistics() {
               </div>
             )}
           </Card>
-
-          <ChannelStats s={s} loading={loading} />
         </div>
       </div>
     </>
