@@ -41,7 +41,7 @@ export default function Statistics() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Ventas de productos" value={formatCurrency(s.revenue)} icon={<DollarSign className="w-5 h-5" />} loading={loading} hint={`Tienda ${formatCurrency(s.byChannel.web.revenue)} · Mostrador ${formatCurrency(s.byChannel.counter.revenue)}`} />
+        <StatTile label="Ventas de productos" value={formatCurrency(s.revenue)} icon={<DollarSign className="w-5 h-5" />} loading={loading} hint={`${formatNumber(s.byChannel.web.count)} en tienda · ${formatNumber(s.byChannel.counter.count)} en mostrador`} />
         <StatTile label="Órdenes" value={formatNumber(s.totalAmount)} icon={<ShoppingCart className="w-5 h-5" />} loading={loading} hint={`${formatNumber(s.validCount)} no canceladas`} />
         <StatTile label="Ticket promedio" value={formatCurrency(s.avgTicket)} icon={<Receipt className="w-5 h-5" />} loading={loading} hint="Solo productos" />
         <StatTile label="Descuentos otorgados" value={formatCurrency(s.discounts)} icon={<Percent className="w-5 h-5" />} loading={loading} hint="Suma de ofertas aplicadas" />
@@ -138,6 +138,8 @@ export default function Statistics() {
               </div>
             )}
           </Card>
+
+          <ChannelStats s={s} loading={loading} />
         </div>
       </div>
     </>
@@ -145,6 +147,62 @@ export default function Statistics() {
 }
 
 type Stats = ReturnType<typeof useOrderStats>;
+
+/** Tienda online vs. mostrador: pedidos, facturación y ticket promedio por canal. */
+function ChannelStats({ s, loading }: { s: Stats; loading: boolean }) {
+  const channels = [
+    { key: 'web', label: 'Tienda online', ...s.byChannel.web },
+    { key: 'counter', label: 'Mostrador', ...s.byChannel.counter },
+  ];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Ventas por canal</CardTitle>
+        <p className="text-sm text-muted-foreground">Órdenes no canceladas del período</p>
+      </CardHeader>
+      {loading ? (
+        <Skeleton className="h-28" />
+      ) : !s.validCount ? (
+        <EmptyState title="Sin ventas en el período" className="py-6" />
+      ) : (
+        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <table className="w-full min-w-[22rem] text-sm">
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="pb-2 font-medium">Canal</th>
+              <th className="pb-2 text-right font-medium">Órdenes</th>
+              <th className="pb-2 text-right font-medium">Productos</th>
+              <th className="pb-2 text-right font-medium">Ticket prom.</th>
+              <th className="pb-2 pl-4 font-medium w-1/4">Participación</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {channels.map((c) => {
+              const share = s.revenue ? (c.revenue / s.revenue) * 100 : 0;
+              return (
+                <tr key={c.key}>
+                  <td className="py-2">{c.label}</td>
+                  <td className="py-2 text-right tabular-nums">{c.count}</td>
+                  <td className="py-2 text-right tabular-nums">{formatCurrency(c.revenue)}</td>
+                  <td className="py-2 text-right tabular-nums text-muted-foreground">{formatCurrency(c.count ? c.revenue / c.count : 0)}</td>
+                  <td className="py-2 pl-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 flex-1 rounded-full bg-muted">
+                        <div className="h-1.5 rounded-full bg-[var(--chart-1)]" style={{ width: `${share}%` }} />
+                      </div>
+                      <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">{share.toFixed(0)}%</span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 /** Envíos: ingresos por envío (aparte de las ventas de productos), domicilio vs retiro y apertura por departamento. */
 function ShippingStats({ s, loading, chartBox }: { s: Stats; loading: boolean; chartBox: (n: React.ReactNode) => React.ReactNode }) {
