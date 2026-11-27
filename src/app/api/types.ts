@@ -554,6 +554,8 @@ export interface RefundInfo {
 export interface OrderFilters extends ListParams {
   status?: OrderStatus | '';
   shippingMethod?: ShippingMethod | '';
+  /** WEB = tienda online; COUNTER = venta de mostrador. */
+  channel?: 'WEB' | 'COUNTER' | '';
   paymentType?: string;
   /** Estado del cobro online (p. ej. PENDING para revisar pagos de Mercado Pago). */
   paymentStatus?: string;

@@ -21,6 +21,7 @@ import { downloadCsv, csvFilename, toCsv } from '../lib/csv';
 
 const DEFAULTS = {
   status: '' as OrderStatus | '',
+  channel: '' as 'WEB' | 'COUNTER' | '',
   paymentType: '',
   shippingMethod: '' as ShippingMethod | '',
   createdAt: '',
@@ -95,6 +96,7 @@ export default function Orders() {
   const { data, isLoading, isFetching, error, refetch } = ordersApi.usePage({
     detalle: true,
     status: f.debounced.status,
+    channel: f.debounced.channel,
     paymentType: f.debounced.paymentType,
     paymentStatus: f.debounced.paymentStatus,
     shippingMethod: f.debounced.shippingMethod,
@@ -337,6 +339,16 @@ export default function Orders() {
       <DataTable
         toolbar={
           <FilterBar activeCount={f.activeCount} onReset={f.reset} right={<GoToOrder />}>
+            <FilterSelect
+              value={f.values.channel}
+              onChange={(channel) => f.set({ channel })}
+              placeholder="Todos los canales"
+              label="Canal"
+              options={[
+                { value: 'WEB', label: 'Tienda online' },
+                { value: 'COUNTER', label: 'Mostrador' },
+              ]}
+            />
             <FilterSelect
               value={f.values.paymentType}
               onChange={(paymentType) => f.set({ paymentType })}
